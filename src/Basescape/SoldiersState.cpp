@@ -36,6 +36,7 @@
 #include "../Savegame/BattleUnit.h"
 #include "../Savegame/Soldier.h"
 #include "../Savegame/SavedGame.h"
+#include "SoldierAssignmentsState.h"
 #include "SoldierInfoState.h"
 #include "SoldierMemorialState.h"
 #include "SoldierTransformationState.h"
@@ -65,7 +66,9 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 	// if both training buttons would be displayed, or if there are any transformations, switch to combobox
 	bool showCombobox = isTransformationAvailable || (isPsiBtnVisible && isTrnBtnVisible) || Options::oxceAlternateCraftEquipmentManagement;
 	// 3 buttons or 2 buttons?
-	bool showThreeButtons = !showCombobox && (isPsiBtnVisible || isTrnBtnVisible);
+	bool showThreeButtons = true;
+	// bool showThreeButtons = !showCombobox && (isPsiBtnVisible || isTrnBtnVisible);
+
 
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0);
@@ -73,6 +76,7 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 	{
 		_btnOk = preAdd(new TextButton(96, 16, 216, 176));
 		_btnMemorial = preAdd(new TextButton(96, 16, 8, 176));
+		_btnAssignments = preAdd(new TextButton(96, 16, 112, 176));
 	}
 	else
 	{
@@ -106,6 +110,7 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 	}
 	else
 	{
+		add(_btnAssignments, "button", "soldierList");
 		add(_btnMemorial, "button", "soldierList");
 		add(_btnPsiTraining, "button", "soldierList");
 		add(_btnTraining, "button", "soldierList");
@@ -132,6 +137,9 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 
 	_btnMemorial->setText(tr("STR_MEMORIAL"));
 	_btnMemorial->onMouseClick((ActionHandler)&SoldiersState::btnMemorialClick);
+
+	_btnAssignments->setText(tr("STR_ASSIGNMENTS"));
+	_btnAssignments->onMouseClick((ActionHandler)&SoldiersState::btnAssignmentsClick);
 
 	_availableOptions.clear();
 	if (showCombobox)
@@ -636,6 +644,15 @@ void SoldiersState::btnMemorialClick(Action *)
 }
 
 /**
+ * Opens the Assignment screen.
+ * @param action Pointer to an action.
+ */
+void SoldiersState::btnAssignmentsClick(Action *)
+{
+	_game->pushState(new SoldierAssignmentsState(_base));
+}
+
+/**
  * Opens the Transformations Overview screen.
  * @param action Pointer to an action.
  */
@@ -662,6 +679,11 @@ void SoldiersState::cbxScreenActionsChange(Action *action)
 	{
 		_cbxScreenActions->setSelected(0);
 		_game->pushState(new SoldierMemorialState);
+	}
+	else if (selAction == "STR_ASSIGNMENTS")
+	{
+		_cbxScreenActions->setSelected(0);
+		_game->pushState(new SoldierAssignmentsState(_base));
 	}
 	else if (selAction == "STR_INVENTORY")
 	{

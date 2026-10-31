@@ -84,6 +84,7 @@
 #include "RuleArcScript.h"
 #include "RuleEventScript.h"
 #include "RuleEvent.h"
+#include "RuleAssignment.h"
 #include "RuleMissionScript.h"
 #include "../Geoscape/Globe.h"
 #include "../Savegame/SavedGame.h"
@@ -3083,6 +3084,14 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 			rule->load(ruleReader);
 		}
 	}
+	for (const auto& ruleReader : iterateRules("assignments", "name"))
+	{
+		RuleAssignment* rule = loadRule(ruleReader, &_assignments, &_eventIndex, "name");
+		if (rule != 0)
+		{
+			rule->load(ruleReader);
+		}
+	}
 	for (const auto& ruleReader : iterateRules("missionScripts", "type"))
 	{
 		RuleMissionScript *rule = loadRule(ruleReader, &_missionScripts, &_missionScriptIndex, "type");
@@ -5288,9 +5297,19 @@ const std::vector<std::string>* Mod::getEventList() const
 	return &_eventIndex;
 }
 
+const std::vector<std::string>* Mod::getAssignmentList() const
+{
+	return &_assignmentIndex;
+}
+
 RuleEvent* Mod::getEvent(const std::string& name, bool error) const
 {
 	return getRule(name, "Event", _events, error);
+}
+
+RuleAssignment* Mod::getAssignment(const std::string& name, bool error) const
+{
+	return getRule(name, "Assignment", _assignments, error);
 }
 
 const std::vector<std::string> *Mod::getMissionScriptList() const

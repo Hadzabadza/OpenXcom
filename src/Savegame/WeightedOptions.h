@@ -49,6 +49,7 @@ public:
 	void save(YAML::YamlNodeWriter writer) const;
 	/// Get the list of strings associated with these weights.
 	std::vector<std::string> getNames();
+	int getTotalWeight() const { return _totalWeight; }
 	const std::map<std::string, size_t>& getChoicesRaw() const { return _choices; }
 private:
 	std::map<std::string, size_t> _choices; //!< Options and weights

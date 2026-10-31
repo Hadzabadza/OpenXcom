@@ -40,7 +40,7 @@ struct SortFunctor;
 class SoldiersState : public State
 {
 private:
-	TextButton *_btnOk, *_btnPsiTraining, *_btnTraining, *_btnMemorial;
+	TextButton *_btnOk, *_btnPsiTraining, *_btnTraining, *_btnMemorial, *_btnAssignments;
 	Window *_window;
 	Text *_txtTitle, *_txtName, *_txtRank, *_txtCraft;
 	ComboBox *_cbxSortBy, *_cbxScreenActions;
@@ -76,6 +76,8 @@ public:
 	/// Handler for clicking the Psi Training button.
 	void btnPsiTrainingClick(Action *action);
 	void btnTrainingClick(Action *action);
+	/// Handler for clicking the Assignment button.
+	void btnAssignmentsClick(Action *action);
 	/// Handler for clicking the Memorial button.
 	void btnMemorialClick(Action *action);
 	/// Handler for clicking the Transformations Overview button/hotkey.

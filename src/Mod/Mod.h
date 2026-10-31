@@ -100,6 +100,7 @@ class RuleMusic;
 class RuleArcScript;
 class RuleEventScript;
 class RuleEvent;
+class RuleAssignment;
 class RuleMissionScript;
 class ModScript;
 class ModScriptGlobal;
@@ -207,6 +208,7 @@ private:
 	std::map<std::string, RuleArcScript*> _arcScripts;
 	std::map<std::string, RuleEventScript*> _eventScripts;
 	std::map<std::string, RuleEvent*> _events;
+	std::map<std::string, RuleAssignment*> _assignments;
 	std::map<std::string, RuleMissionScript*> _missionScripts;
 	std::map<std::string, RuleMissionScript*> _adhocScripts;
 	std::map<std::string, std::vector<ExtraSprites *> > _extraSprites;
@@ -330,7 +332,7 @@ private:
 	std::vector<std::string> _countriesIndex, _extraGlobeLabelsIndex, _regionsIndex, _facilitiesIndex, _craftsIndex, _craftWeaponsIndex, _itemCategoriesIndex, _itemsIndex, _invsIndex, _ufosIndex;
 	std::vector<std::string> _aliensIndex, _enviroEffectsIndex, _startingConditionsIndex, _deploymentsIndex, _armorsIndex, _ufopaediaIndex, _ufopaediaCatIndex, _researchIndex, _manufactureIndex;
 	std::vector<std::string> _skillsIndex, _soldiersIndex, _soldierTransformationIndex, _soldierBonusIndex, _voiceSetsIndex;
-	std::vector<std::string> _alienMissionsIndex, _terrainIndex, _customPalettesIndex, _arcScriptIndex, _eventScriptIndex, _eventIndex, _missionScriptIndex, _adhocScriptIndex;
+	std::vector<std::string> _alienMissionsIndex, _terrainIndex, _customPalettesIndex, _arcScriptIndex, _eventScriptIndex, _eventIndex, _assignmentIndex, _missionScriptIndex, _adhocScriptIndex;
 	std::vector<std::vector<int> > _alienItemLevels;
 	std::vector<std::array<SDL_Color, TransparenciesOpacityLevels>> _transparencies;
 	int _facilityListOrder, _craftListOrder, _itemCategoryListOrder, _itemListOrder, _armorListOrder, _alienRaceListOrder, _researchListOrder,  _manufactureListOrder;
@@ -1124,6 +1126,8 @@ public:
 	RuleEventScript* getEventScript(const std::string& name, bool error = false) const;
 	const std::vector<std::string>* getEventList() const;
 	RuleEvent* getEvent(const std::string& name, bool error = false) const;
+	const std::vector<std::string>* getAssignmentList() const;
+	RuleAssignment* getAssignment(const std::string& name, bool error = false) const;
 	const std::vector<std::string> *getMissionScriptList() const;
 	const std::vector<std::string> *getAdhocScriptList() const;
 	RuleMissionScript *getMissionScript(const std::string &name, bool error = false) const;
