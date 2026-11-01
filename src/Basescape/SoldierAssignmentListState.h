@@ -17,7 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <map>
 #include "../Engine/State.h"
 
 namespace OpenXcom
@@ -25,42 +24,35 @@ namespace OpenXcom
 
 class TextButton;
 class TextList;
-class ToggleTextButton;
 class Window;
 class Text;
-class RuleEvent;
+class Base;
+class RuleAssignment;
 
 /**
  * Displays info about a custom Geoscape event.
  */
-class GeoscapeAssignmentState : public State
+class SoldierAssignmentListState : public State
 {
 private:
 	Window *_window;
-	Text *_txtTitle, *_txtMessage;
-	Text *_txtItem, *_txtQuantity;
+	Text *_txtTitle;
 	TextButton *_btnOk;
-	ToggleTextButton *_btnItemsArriving;
-	TextList *_lstTransfers;
+	TextList *_lstAssignments;
+	std::vector<RuleAssignment*> _assignmentList;
+	Base *_base;
 
-	std::map<std::string, int> _itemsRemoved;
-	std::string _researchName;
-	std::string _bonusResearchName;
-	const RuleEvent &_eventRule;
-
-	/// Helper performing event logic.
-	void eventLogic();
 public:
 	/// Creates the GeoscapeAssignmentState.
-	GeoscapeAssignmentState(const RuleEvent& eventRule);
+	SoldierAssignmentListState(Base *base);
 	/// Cleans up the GeoscapeAssignmentState.
-	~GeoscapeAssignmentState();
+	~SoldierAssignmentListState();
 	/// Initializes the state.
 	void init() override;
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 	/// Handler for clicking the ItemsArriving button.
-	void btnItemsArrivingClick(Action *action);
+	void btnAssignmentClick(Action *action);
 };
 
 }

@@ -17,35 +17,36 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "SoldiersState.h"
-#include <climits>
-#include "../Engine/Screen.h"
+
+#include "../Battlescape/BattlescapeGenerator.h"
+#include "../Battlescape/InventoryState.h"
+#include "../Engine/Action.h"
 #include "../Engine/Game.h"
-#include "../Mod/Mod.h"
-#include "../Mod/RuleSoldierTransformation.h"
 #include "../Engine/LocalizedText.h"
 #include "../Engine/Options.h"
-#include "../Interface/ComboBox.h"
-#include "../Engine/Action.h"
+#include "../Engine/Screen.h"
+#include "../Engine/Unicode.h"
 #include "../Geoscape/AllocatePsiTrainingState.h"
 #include "../Geoscape/AllocateTrainingState.h"
-#include "../Interface/TextButton.h"
-#include "../Interface/Window.h"
+#include "../Interface/ComboBox.h"
 #include "../Interface/Text.h"
+#include "../Interface/TextButton.h"
 #include "../Interface/TextList.h"
+#include "../Interface/Window.h"
+#include "../Mod/Mod.h"
+#include "../Mod/RuleSoldierTransformation.h"
 #include "../Savegame/Base.h"
 #include "../Savegame/BattleUnit.h"
-#include "../Savegame/Soldier.h"
+#include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/SavedGame.h"
-#include "SoldierAssignmentsState.h"
+#include "../Savegame/Soldier.h"
+#include "SoldierAssignmentListState.h"
 #include "SoldierInfoState.h"
 #include "SoldierMemorialState.h"
-#include "SoldierTransformationState.h"
 #include "SoldierTransformationListState.h"
-#include "../Battlescape/InventoryState.h"
-#include "../Battlescape/BattlescapeGenerator.h"
-#include "../Savegame/SavedBattleGame.h"
+#include "SoldierTransformationState.h"
 #include <algorithm>
-#include "../Engine/Unicode.h"
+#include <climits>
 
 namespace OpenXcom
 {
@@ -649,7 +650,7 @@ void SoldiersState::btnMemorialClick(Action *)
  */
 void SoldiersState::btnAssignmentsClick(Action *)
 {
-	_game->pushState(new SoldierAssignmentsState(_base));
+	_game->pushState(new SoldierAssignmentListState(_base));
 }
 
 /**
@@ -683,7 +684,7 @@ void SoldiersState::cbxScreenActionsChange(Action *action)
 	else if (selAction == "STR_ASSIGNMENTS")
 	{
 		_cbxScreenActions->setSelected(0);
-		_game->pushState(new SoldierAssignmentsState(_base));
+		_game->pushState(new SoldierAssignmentListState(_base));
 	}
 	else if (selAction == "STR_INVENTORY")
 	{

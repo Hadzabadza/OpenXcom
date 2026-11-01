@@ -3086,7 +3086,7 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 	}
 	for (const auto& ruleReader : iterateRules("assignments", "name"))
 	{
-		RuleAssignment* rule = loadRule(ruleReader, &_assignments, &_eventIndex, "name");
+		RuleAssignment* rule = loadRule(ruleReader, &_assignments, &_assignmentIndex, "name");
 		if (rule != 0)
 		{
 			rule->load(ruleReader);

@@ -39,7 +39,7 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 		load(parent);
 	}
 	reader.tryRead("successName", _successName);
-	reader.tryRead("successName", _successName);
+	reader.tryRead("description", _description);
 	if (reader["weightedEventList"])
 	{
 		_weightedEventList.load(reader["weightedEventList"]);
