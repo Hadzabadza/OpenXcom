@@ -43,23 +43,24 @@ private:
 	TextEdit *_btnQuickSearch;
 	Window *_window;
 	InteractiveSurface *_interactiveWindow;
-	Text *_txtTitle, *_txtName, *_txtContribution, *_txtRelevantStats, *_txtSuccessChance, *_txtDescriptionTitle, *_txtDescription;
+	Text *_txtTitle, *_txtName, *_txtContribution, *_txtRelevantStats, *_txtDescriptionTitle, *_txtDescription, *_txtSelectedSoldiers, *_txtMinimumSoldiers;
 	// ComboBox *_cbxSortBy, *_cbxScreenActions;
-	TextList *_lstSoldiers;
-	TextList *_lstRelevantStatsTable;
+	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
-	std::vector<int> _indices, _filteredIndicesOfSoldiers;
+	std::vector<int> _indices, _filteredIndicesOfSoldiers, _outcomeWeights;
 	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers;
-	std::map<const Soldier*, bool> _selectedSoldiersMap;
+	std::vector<const Soldier*> _selectedSoldiers;
+	std::map<const Soldier*, std::vector<int>> _contributionMap;
 	std::map<int, bool> _toggledRows;
 	std::vector<SortFunctor *> _sortFunctors;
 	getStatFn_t _dynGetter;
 	std::vector<std::string> _availableOptions;
 	size_t _mainOffset;
 	RuleAssignment& _ruleAssignment;
-	WeightedOptions _resolutionsList;
-	int _totalContribution, _difficultyWeight;
+	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
 	bool _lmb;
+	Uint8 _activeStatColor, _inactiveStatColor;
+	const char* bars;
 
 public:
 	/// Creates the Soldiers state.
@@ -91,7 +92,11 @@ public:
 	/// General helper for colors.
 	Uint8 probabilityColor(float probabilityColor);
 	/// Helper for calculating a soldier's contribution to assignment success.
-	int calculateContribution(const Soldier* soldier);
+	int countContribution(const Soldier* soldier, size_t outcome);
+	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
+	void fillContributionTable();
+	void recalculateChances();
+	void colorRelevantStatsTable(int rowCount);
 };
 
 }

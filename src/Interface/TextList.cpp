@@ -281,8 +281,20 @@ size_t TextList::getVisibleRows() const
 void TextList::addRow(int cols, ...)
 {
 	va_list args;
-	int ncols;
 	va_start(args, cols);
+	std::vector<const char*> column_texts(cols);
+	for (int i = 0; i < cols; ++i)
+	{
+		column_texts[i] = va_arg(args, char*);
+	}
+	addRowVector(column_texts);
+	va_end(args);
+}
+
+void TextList::addRowVector(const std::vector<const char*>& column_texts)
+{
+	int ncols;
+	const int cols = column_texts.size();
 	if (cols > 0)
 	{
 		ncols = cols;
@@ -331,7 +343,7 @@ void TextList::addRow(int cols, ...)
 			txt->setSmall();
 		}
 		if (cols > 0)
-			txt->setText(va_arg(args, char*));
+			txt->setText(column_texts[i]);
 		// grab this before we enable word wrapping so we can use it to calculate
 		// the total row height below
 		int vmargin = _font->getHeight() - txt->getTextHeight();
@@ -421,7 +433,6 @@ void TextList::addRow(int cols, ...)
 	}
 
 	_redraw = true;
-	va_end(args);
 	updateArrows();
 }
 
@@ -468,14 +479,26 @@ void TextList::setColumns(int cols, ...)
 {
 	va_list args;
 	va_start(args, cols);
-
-	_columns.clear();
+	std::vector<size_t> columnWidths(cols);
 	for (int i = 0; i < cols; ++i)
 	{
-		_columns.push_back(va_arg(args, int));
+		columnWidths[i]= va_arg(args, int);
 	}
-
+	setColumnsVector(columnWidths);
 	va_end(args);
+}
+
+/**
+ * Reimplements setColumns to allow a runtime restructuring of columns.
+ * @param column_widths Widths of each column.
+ */
+void TextList::setColumnsVector(const std::vector<size_t>& column_widths)
+{
+	_columns.clear();
+	for (size_t col:column_widths)
+	{
+		_columns.push_back(col);
+	}
 }
 
 /**

@@ -28,7 +28,7 @@ RuleAssignment::RuleAssignment(const std::string &name) :
 }
 
 /**
- * Loads the event definition from YAML.
+ * Loads the assignment definition from YAML.
  * @param node YAML node.
  */
 void RuleAssignment::load(const YAML::YamlNodeReader& node)
@@ -38,11 +38,40 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 	{
 		load(parent);
 	}
-	reader.tryRead("successName", _successName);
 	reader.tryRead("description", _description);
-	if (reader["weightedEventList"])
+	reader.tryRead("minimumSoldiers", _minimumSoldiers);
+	reader.tryRead("maximumSoldiers", _maximumSoldiers);
+	if (const auto& outcomesNode = reader["outcomes"])
 	{
-		_weightedEventList.load(reader["weightedEventList"]);
+		if (outcomesNode.isSeq())
+		{
+			const size_t outcomes = outcomesNode.childrenCount();
+
+			_outcomeNames.clear();
+			_outcomeBaseWeights.clear();
+			_outcomeCalculationTypes.clear();
+			_outcomeColors.clear();
+			_outcomeResolutionTypes.clear();
+			_outcomeStatsAndRatios.clear();
+
+			_outcomeNames.resize(outcomes);
+			_outcomeBaseWeights.resize(outcomes);
+			_outcomeCalculationTypes.resize(outcomes);
+			_outcomeColors.resize(outcomes);
+			_outcomeResolutionTypes.resize(outcomes);
+			_outcomeStatsAndRatios.resize(outcomes);
+
+			for (size_t i = 0; i < outcomes; ++i)
+			{
+				outcomesNode[i].readNode("name", _outcomeNames[i]);
+				outcomesNode[i].readNode("baseWeight", _outcomeBaseWeights[i]);
+				outcomesNode[i].readNode("calculationType", _outcomeCalculationTypes[i]);
+				outcomesNode[i].readNode("color", _outcomeColors[i]);
+				outcomesNode[i].readNode("resolutionType", _outcomeResolutionTypes[i]);
+				outcomesNode[i].readNode("statsAndRatios", _outcomeStatsAndRatios[i]);
+			}
+		}
 	}
 }
 }
+

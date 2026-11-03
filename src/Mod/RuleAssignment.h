@@ -30,28 +30,44 @@ namespace OpenXcom
 class RuleAssignment
 {
 private:
-	std::string _name;
-	std::string _successName, _description;
-	WeightedOptions _weightedEventList;
+	std::string _name, _description;
+	int _minimumSoldiers, _maximumSoldiers;
+	std::vector<std::string> _outcomeNames;
+	std::vector<std::string> _outcomeResolutionTypes;
+	std::vector<int> _outcomeBaseWeights;
+	std::vector<std::string> _outcomeCalculationTypes;
+	std::vector<Uint8> _outcomeColors;
+	std::vector<std::map<std::string, float>> _outcomeStatsAndRatios;
+
 public:
+	std::string debug;
 	/// Creates a blank RuleAssignment.
 	RuleAssignment(const std::string &name);
 	/// Cleans up the assignment ruleset.
 	~RuleAssignment() = default;
 	/// Loads the assignment definition from YAML.
 	void load(const YAML::YamlNodeReader& reader);
-
 	/// Gets the assignment's name.
 	const std::string &getName() const { return _name; }
-
 	/// Gets the assignment's description.
 	const std::string &getDescription() const { return _description; }
+	/// Gets the assignment's maximum allowed soldiers.
+	const int &getMaxSoldiers() const { return _maximumSoldiers; }
+	/// Gets the assignment's minimum necessary soldiers.
+	const int &getMinSoldiers() const { return _minimumSoldiers; }
+	/// Gets the assignment's outcome names.
+	const std::vector<std::string> &getOutcomeNames() const { return _outcomeNames; }
+	/// Gets the assignment's outcome resolution types.
+	const std::vector<std::string> &getResolutionTypes() const { return _outcomeResolutionTypes; }
+	/// Gets the assignment's outcome base weights.
+	const std::vector<int> &getOutcomeBaseWeights() const { return _outcomeBaseWeights; }
+	/// Gets the assignment's outcome calculation types.
+	const std::vector<std::string> &getOutcomeCalculationTypes() const { return _outcomeCalculationTypes; }
+	/// Gets the assignment's outcome colors.
+	const std::vector<Uint8> &getOutcomeColors() const { return _outcomeColors; }
+	/// Gets the assignment's outcome used stats and their ratios.
+	const std::vector<std::map<std::string, float>> &getOutcomeStatsAndRatios() const { return _outcomeStatsAndRatios; }
 
-	/// Gets the name of the successful resolution.
-	const std::string &getSuccessName() const { return _successName; }
-
-	/// Gets a list of events; one of them is randomly selected (considering weights) and triggered instantly.
-	const WeightedOptions &getWeightedEventList() const { return _weightedEventList; }
 };
 
 }

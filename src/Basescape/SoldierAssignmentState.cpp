@@ -35,7 +35,6 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/Soldier.h"
-#include "../Savegame/SoldierDeath.h"
 #include "SoldierAssignmentState.h"
 #include "SoldierInfoState.h"
 
@@ -46,28 +45,30 @@ namespace OpenXcom
 {
 /**
  * Initializes all the elements in the Soldier Assignment screen.
- * @param game Pointer to the core game.
+ * @param base Pointer to the base that the assignment table has been called from.
+ * @param assignment Pointer to the assignment ruleset.
  */
-SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assignment) : _base(base), _origSoldierOrder(*_base->getSoldiers()), _dynGetter(NULL), _mainOffset(0), _totalContribution(0), _lmb(false),
-																						 _ruleAssignment(*assignment)
+SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assignment) :
+	_base(base), _origSoldierOrder(*_base->getSoldiers()), _dynGetter(NULL), _mainOffset(0), _ruleAssignment(*assignment),
+	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false),
+	_activeStatColor(127), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size()), bars(new char[320]{'|'})
 {
-	_resolutionsList = _ruleAssignment.getWeightedEventList();
-	_difficultyWeight = _resolutionsList.getTotalWeight();
-
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
 	_btnQuickSearch = new TextEdit(this, 48, 9, 16, 10);
 	_btnOk = new TextButton(148, 16, 164, 176);
 	_btnSendOff = new TextButton(148, 16, 8, 176);
-	_txtSuccessChance = new Text(312, 16, 8, 166);
+	_txtMinimumSoldiers = new Text(32, 16, 160, 146);
+	_txtSelectedSoldiers = new Text(96, 16, 220, 146);
 	_txtTitle = new Text(310, 17, 5, 8);
 	_txtName = new Text(114, 9, 148, 26);
-	_txtContribution = new Text(160, 9, 148, 26);
+	_txtContribution = new Text(144, 9, 148, 26);
 	_txtDescriptionTitle = new Text(124, 9, 8, 26);
 	_txtDescription = new Text(124, 120, 8, 36);
 	_txtRelevantStats = new Text(150, 9, 8, 156);
 	_lstRelevantStatsTable = new TextList(288, 9, 8, 156);
 	_lstSoldiers = new TextList(160, 104, 140, 34);
+	_lstOutcomeDistribution = new TextList(308, 16, 8, 166);
 	_interactiveWindow = new InteractiveSurface(320, 200, 0, 0);
 
 	// Set palette
@@ -77,7 +78,8 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	add(_btnQuickSearch, "button", "soldierAssignments");
 	add(_btnOk, "button", "soldierAssignments");
 	add(_btnSendOff, "button", "soldierAssignments");
-	add(_txtSuccessChance, "text", "soldierAssignments");
+	add(_txtMinimumSoldiers, "text", "soldierAssignments");
+	add(_txtSelectedSoldiers, "text", "soldierAssignments");
 	add(_txtTitle, "text", "soldierAssignments");
 	add(_txtName, "text", "soldierAssignments");
 	add(_txtContribution, "text", "soldierAssignments");
@@ -86,6 +88,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	add(_txtRelevantStats, "text", "soldierAssignments");
 	add(_lstRelevantStatsTable, "list2", "soldierAssignments");
 	add(_lstSoldiers, "list", "soldierAssignments");
+	add(_lstOutcomeDistribution, "list", "soldierAssignments");
 	add(_interactiveWindow, "interactiveWindow", "soldierAssignments");
 
 	centerAllSurfaces();
@@ -105,20 +108,20 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtTitle->setText(tr(_ruleAssignment.getName()));
 
 	_txtName->setText(tr("STR_NAME_UC"));
-	_txtSuccessChance->setText(tr("STR_ASSIGNMENT_SUCCESS_CHANCE").arg(" Select soldiers to calculate"));
+	_txtMinimumSoldiers->setText(tr("STR_ASSIGNMENT_MIN_SOLDIERS_UC").arg(_minSoldiers));
+	_txtSelectedSoldiers->setText(tr("STR_ASSIGNMENT_SELECTED_SOLDIERS_UC").arg(0).arg(_maxSoldiers));
 	_txtContribution->setText(tr("STR_ASSIGNMENT_CONTRIBUTION_UC"));
 	_txtContribution->setAlign(ALIGN_RIGHT);
 	_txtDescriptionTitle->setAlign(ALIGN_CENTER);
 	_txtDescriptionTitle->setText(tr("STR_ASSIGNMENT_SUMMARY_UC"));
-	_txtDescription->setText(tr(_ruleAssignment.getDescription()).arg(tr("STR_BRAVERY_ABBREVIATION")).arg(_difficultyWeight));
+	_txtDescription->setText(tr(_ruleAssignment.getDescription()));
 	_txtDescription->setVerticalAlign(ALIGN_TOP);
 	_txtDescription->setAlign(ALIGN_CENTER);
 	_txtDescription->setWordWrap(true);
 	_txtDescription->setColor(_txtDescription->getSecondaryColor());
-	_txtDescription->setSecondaryColor(127);
+	_txtDescription->setSecondaryColor(_activeStatColor);
 	_txtRelevantStats->setText(tr("STR_ASSIGNMENT_RELEVANT_STATS_UC"));
 
-	// _lstSoldiers->setColumns(3, 16, 16, 40);
 	_lstSoldiers->setAlign(ALIGN_RIGHT, 1);
 	_lstSoldiers->setSelectable(true);
 	_lstSoldiers->setBackground(_window);
@@ -136,8 +139,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	{
 		_lstRelevantStatsTable->setColumns(13, 80, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 0);
 	}
-	// _lstRelevantStatsTable->setAlign(ALIGN_RIGHT);
-	// _lstRelevantStatsTable->setAlign(ALIGN_LEFT, 0);
+	_lstRelevantStatsTable->setAlign(ALIGN_CENTER);
 }
 
 /**
@@ -154,9 +156,10 @@ SoldierAssignmentState::~SoldierAssignmentState()
 void SoldierAssignmentState::init()
 {
 	State::init();
-
 	initSoldierList(_lstSoldiers->getScroll());
 	initStatList();
+	fillContributionTable();
+	recalculateChances();
 }
 
 void SoldierAssignmentState::initSoldierList(size_t scrl)
@@ -230,7 +233,7 @@ void SoldierAssignmentState::initSoldierList(size_t scrl)
 	for (const auto* soldier : _filteredListOfSoldiers)
 	{
 		std::string craftString = soldier->getCraftString(_game->getLanguage(), recovery);
-		int soldierContribution = calculateContribution(soldier);
+		int soldierContribution = countContribution(soldier, 0);
 		if (_dynGetter != NULL)
 		{
 			// call corresponding getter
@@ -244,7 +247,6 @@ void SoldierAssignmentState::initSoldierList(size_t scrl)
 			_lstSoldiers->addRow(2, soldier->getName(true).c_str(), std::to_string(soldierContribution).c_str());
 		}
 		_lstSoldiers->setCellColor(row, 1, contributionColor(soldierContribution));
-		_selectedSoldiersMap.insert(std::pair(soldier,false));
 		_toggledRows.insert(std::pair(row,false));
 		row++;
 	}
@@ -259,8 +261,6 @@ void SoldierAssignmentState::initStatList()
 
 	if (_game->getMod()->isManaFeatureEnabled())
 	{
-		bool showMana = _game->getSavedGame()->isManaUnlocked(_game->getMod());
-
 		_lstRelevantStatsTable->addRow(14, "",
 			tr("STR_TIME_UNITS_ABBREVIATION").c_str(),
 			tr("STR_STAMINA_ABBREVIATION").c_str(),
@@ -271,72 +271,11 @@ void SoldierAssignmentState::initStatList()
 			tr("STR_THROWING_ACCURACY_ABBREVIATION").c_str(),
 			tr("STR_MELEE_ACCURACY_ABBREVIATION").c_str(),
 			tr("STR_STRENGTH_ABBREVIATION").c_str(),
-			tr("STR_MANA_ABBREVIATION").c_str(),
 			tr("STR_PSIONIC_STRENGTH_ABBREVIATION").c_str(),
 			tr("STR_PSIONIC_SKILL_ABBREVIATION").c_str(),
+			tr("STR_MANA_ABBREVIATION").c_str(),
 			"");
-		// _lstStatChanges->addRow(14, tr("STR_CURRENT_STATS").c_str(),
-		// 	formatStat(currentStats.tu, false, false).c_str(),
-		// 	formatStat(currentStats.stamina, false, false).c_str(),
-		// 	formatStat(currentStats.health, false, false).c_str(),
-		// 	formatStat(currentStats.bravery, false, false).c_str(),
-		// 	formatStat(currentStats.reactions, false, false).c_str(),
-		// 	formatStat(currentStats.firing, false, false).c_str(),
-		// 	formatStat(currentStats.throwing, false, false).c_str(),
-		// 	formatStat(currentStats.melee, false, false).c_str(),
-		// 	formatStat(currentStats.strength, false, false).c_str(),
-		// 	formatStat(currentStats.mana, false, !showMana).c_str(),
-		// 	formatStat(currentStats.psiStrength, false, !showPsiStrength).c_str(),
-		// 	formatStat(currentStats.psiSkill, false, !showPsiSkill).c_str(),
-		// 	"");
-		// _lstStatChanges->addRow(14, tr(twoRows ? "STR_CHANGES_MIN" : "STR_CHANGES").c_str(),
-		// 	formatStat(changedStatsMin.tu, true, rerollFlags.tu || randomFlags.tu).c_str(),
-		// 	formatStat(changedStatsMin.stamina, true, rerollFlags.stamina || randomFlags.stamina).c_str(),
-		// 	formatStat(changedStatsMin.health, true, rerollFlags.health || randomFlags.health).c_str(),
-		// 	formatStat(changedStatsMin.bravery, true, rerollFlags.bravery || randomFlags.bravery).c_str(),
-		// 	formatStat(changedStatsMin.reactions, true, rerollFlags.reactions || randomFlags.reactions).c_str(),
-		// 	formatStat(changedStatsMin.firing, true, rerollFlags.firing || randomFlags.firing).c_str(),
-		// 	formatStat(changedStatsMin.throwing, true, rerollFlags.throwing || randomFlags.throwing).c_str(),
-		// 	formatStat(changedStatsMin.melee, true, rerollFlags.melee || randomFlags.melee).c_str(),
-		// 	formatStat(changedStatsMin.strength, true, rerollFlags.strength || randomFlags.strength).c_str(),
-		// 	formatStat(changedStatsMin.mana, true, !showMana || rerollFlags.mana || randomFlags.mana).c_str(),
-		// 	formatStat(changedStatsMin.psiStrength, true, !showPsiStrength || rerollFlags.psiStrength || randomFlags.psiStrength).c_str(),
-		// 	formatStat(changedStatsMin.psiSkill, true, !showPsiSkill || rerollFlags.psiSkill || randomFlags.psiSkill).c_str(),
-		// 	"");
-		// if (twoRows)
-		// {
-		// 	_lstStatChanges->addRow(14, tr("STR_CHANGES_MAX").c_str(),
-		// 		formatStat(changedStatsMax.tu, true, rerollFlags.tu).c_str(),
-		// 		formatStat(changedStatsMax.stamina, true, rerollFlags.stamina).c_str(),
-		// 		formatStat(changedStatsMax.health, true, rerollFlags.health).c_str(),
-		// 		formatStat(changedStatsMax.bravery, true, rerollFlags.bravery).c_str(),
-		// 		formatStat(changedStatsMax.reactions, true, rerollFlags.reactions).c_str(),
-		// 		formatStat(changedStatsMax.firing, true, rerollFlags.firing).c_str(),
-		// 		formatStat(changedStatsMax.throwing, true, rerollFlags.throwing).c_str(),
-		// 		formatStat(changedStatsMax.melee, true, rerollFlags.melee).c_str(),
-		// 		formatStat(changedStatsMax.strength, true, rerollFlags.strength).c_str(),
-		// 		formatStat(changedStatsMax.mana, true, !showMana || rerollFlags.mana).c_str(),
-		// 		formatStat(changedStatsMax.psiStrength, true, !showPsiStrength || rerollFlags.psiStrength).c_str(),
-		// 		formatStat(changedStatsMax.psiSkill, true, !showPsiSkill || rerollFlags.psiSkill).c_str(),
-		// 		"");
-		// }
-		// if (bonusRule)
-		// {
-		// 	_lstStatChanges->addRow(14, tr("STR_BONUS_STATS").c_str(),
-		// 		formatStat(bonusStats.tu, true, false).c_str(),
-		// 		formatStat(bonusStats.stamina, true, false).c_str(),
-		// 		formatStat(bonusStats.health, true, false).c_str(),
-		// 		formatStat(bonusStats.bravery, true, false).c_str(),
-		// 		formatStat(bonusStats.reactions, true, false).c_str(),
-		// 		formatStat(bonusStats.firing, true, false).c_str(),
-		// 		formatStat(bonusStats.throwing, true, false).c_str(),
-		// 		formatStat(bonusStats.melee, true, false).c_str(),
-		// 		formatStat(bonusStats.strength, true, false).c_str(),
-		// 		formatStat(bonusStats.mana, true, false).c_str(),
-		// 		formatStat(bonusStats.psiStrength, true, false).c_str(),
-		// 		formatStat(bonusStats.psiSkill, true, false).c_str(),
-		// 		"");
-		// }
+		colorRelevantStatsTable(12);
 	}
 	else
 	{
@@ -353,67 +292,8 @@ void SoldierAssignmentState::initStatList()
 			tr("STR_PSIONIC_STRENGTH_ABBREVIATION").c_str(),
 			tr("STR_PSIONIC_SKILL_ABBREVIATION").c_str(),
 			"");
-	// 	_lstStatChanges->addRow(13, tr("STR_CURRENT_STATS").c_str(),
-	// 		formatStat(currentStats.tu, false, false).c_str(),
-	// 		formatStat(currentStats.stamina, false, false).c_str(),
-	// 		formatStat(currentStats.health, false, false).c_str(),
-	// 		formatStat(currentStats.bravery, false, false).c_str(),
-	// 		formatStat(currentStats.reactions, false, false).c_str(),
-	// 		formatStat(currentStats.firing, false, false).c_str(),
-	// 		formatStat(currentStats.throwing, false, false).c_str(),
-	// 		formatStat(currentStats.melee, false, false).c_str(),
-	// 		formatStat(currentStats.strength, false, false).c_str(),
-	// 		formatStat(currentStats.psiStrength, false, !showPsiStrength).c_str(),
-	// 		formatStat(currentStats.psiSkill, false, !showPsiSkill).c_str(),
-	// 		"");
-	// 	_lstStatChanges->addRow(13, tr(twoRows ? "STR_CHANGES_MIN" : "STR_CHANGES").c_str(),
-	// 		formatStat(changedStatsMin.tu, true, rerollFlags.tu || randomFlags.tu).c_str(),
-	// 		formatStat(changedStatsMin.stamina, true, rerollFlags.stamina || randomFlags.stamina).c_str(),
-	// 		formatStat(changedStatsMin.health, true, rerollFlags.health || randomFlags.health).c_str(),
-	// 		formatStat(changedStatsMin.bravery, true, rerollFlags.bravery || randomFlags.bravery).c_str(),
-	// 		formatStat(changedStatsMin.reactions, true, rerollFlags.reactions || randomFlags.reactions).c_str(),
-	// 		formatStat(changedStatsMin.firing, true, rerollFlags.firing || randomFlags.firing).c_str(),
-	// 		formatStat(changedStatsMin.throwing, true, rerollFlags.throwing || randomFlags.throwing).c_str(),
-	// 		formatStat(changedStatsMin.melee, true, rerollFlags.melee || randomFlags.melee).c_str(),
-	// 		formatStat(changedStatsMin.strength, true, rerollFlags.strength || randomFlags.strength).c_str(),
-	// 		formatStat(changedStatsMin.psiStrength, true, !showPsiStrength || rerollFlags.psiStrength || randomFlags.psiStrength).c_str(),
-	// 		formatStat(changedStatsMin.psiSkill, true, !showPsiSkill || rerollFlags.psiSkill || randomFlags.psiSkill).c_str(),
-	// 		"");
-	// 	if (twoRows)
-	// 	{
-	// 		_lstStatChanges->addRow(13, tr("STR_CHANGES").c_str(),
-	// 			formatStat(changedStatsMax.tu, true, rerollFlags.tu).c_str(),
-	// 			formatStat(changedStatsMax.stamina, true, rerollFlags.stamina).c_str(),
-	// 			formatStat(changedStatsMax.health, true, rerollFlags.health).c_str(),
-	// 			formatStat(changedStatsMax.bravery, true, rerollFlags.bravery).c_str(),
-	// 			formatStat(changedStatsMax.reactions, true, rerollFlags.reactions).c_str(),
-	// 			formatStat(changedStatsMax.firing, true, rerollFlags.firing).c_str(),
-	// 			formatStat(changedStatsMax.throwing, true, rerollFlags.throwing).c_str(),
-	// 			formatStat(changedStatsMax.melee, true, rerollFlags.melee).c_str(),
-	// 			formatStat(changedStatsMax.strength, true, rerollFlags.strength).c_str(),
-	// 			formatStat(changedStatsMax.psiStrength, true, !showPsiStrength || rerollFlags.psiStrength).c_str(),
-	// 			formatStat(changedStatsMax.psiSkill, true, !showPsiSkill || rerollFlags.psiSkill).c_str(),
-	// 			"");
-	// 	}
-	// 	if (bonusRule)
-	// 	{
-	// 		_lstStatChanges->addRow(13, tr("STR_BONUS_STATS").c_str(),
-	// 			formatStat(bonusStats.tu, true, false).c_str(),
-	// 			formatStat(bonusStats.stamina, true, false).c_str(),
-	// 			formatStat(bonusStats.health, true, false).c_str(),
-	// 			formatStat(bonusStats.bravery, true, false).c_str(),
-	// 			formatStat(bonusStats.reactions, true, false).c_str(),
-	// 			formatStat(bonusStats.firing, true, false).c_str(),
-	// 			formatStat(bonusStats.throwing, true, false).c_str(),
-	// 			formatStat(bonusStats.melee, true, false).c_str(),
-	// 			formatStat(bonusStats.strength, true, false).c_str(),
-	// 			formatStat(bonusStats.psiStrength, true, false).c_str(),
-	// 			formatStat(bonusStats.psiSkill, true, false).c_str(),
-	// 			"");
-	// 	}
+		colorRelevantStatsTable(11);
 	}
-	_lstRelevantStatsTable->setColor(7);
-	_lstRelevantStatsTable->setCellColor(0,4,127);
 }
 
 /**
@@ -431,14 +311,14 @@ void SoldierAssignmentState::btnOkClick(Action *)
 */
 void SoldierAssignmentState::btnSendOffClick(Action *)
 {
-	if (!_resolutionsList.empty())
-	{
-		const RuleEvent *resolution_event = _game->getMod()->getEvent(_resolutionsList.choose(), true);
-		if (resolution_event)
-		{
-			_game->pushState(new GeoscapeEventState(*resolution_event));
-		}
-	}
+	// if (!_resolutionsList.empty())
+	// {
+	// 	const RuleEvent *resolution_event = _game->getMod()->getEvent(_resolutionsList.choose(), true);
+	// 	if (resolution_event)
+	// 	{
+	// 		_game->pushState(new GeoscapeEventState(*resolution_event));
+	// 	}
+	// }
 }
 
 void SoldierAssignmentState::toggleSoldier(int row)
@@ -447,24 +327,23 @@ void SoldierAssignmentState::toggleSoldier(int row)
 	{
 		_toggledRows.at(row) = true;
 		Soldier *_soldier = _base->getSoldiers()->at(row);
-		if (_selectedSoldiersMap.at(_soldier) == false)
+		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), _soldier);
+		if (soldier_iter == _selectedSoldiers.end())
 		{
-			_totalContribution+=calculateContribution(_soldier);
-			_selectedSoldiersMap.at(_soldier) = true;
-			_lstSoldiers->setCellColor(row,0, _lstSoldiers->getSecondaryColor());
+			if (_selectedSoldiers.size()<_maxSoldiers)
+			{
+				_selectedSoldiers.push_back(_soldier);
+				_lstSoldiers->setCellColor(row,0, _lstSoldiers->getSecondaryColor());
+				recalculateChances();
+			}
 		}
 		else
 		{
-			_totalContribution-=calculateContribution(_soldier);
-			_selectedSoldiersMap.at(_soldier) = false;
+			_selectedSoldiers.erase(soldier_iter);
 			_lstSoldiers->setCellColor(row,0, _lstSoldiers->getColor());
+			recalculateChances();
 		}
-		_resolutionsList.set(_ruleAssignment.getSuccessName(), _totalContribution);
-		float success_chance = float(_totalContribution)/float(_resolutionsList.getTotalWeight());
-		std::stringstream fomrattedChance;
-		fomrattedChance << std::fixed << std::setprecision(0) << success_chance*100;
-		_txtSuccessChance->setText(tr("STR_ASSIGNMENT_SUCCESS_CHANCE").arg(fomrattedChance.str()+"%"));
-		_txtSuccessChance->setSecondaryColor(probabilityColor(success_chance));
+		_txtSelectedSoldiers->setText(tr("STR_ASSIGNMENT_SELECTED_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiers));
 	}
 }
 
@@ -568,8 +447,9 @@ void SoldierAssignmentState::enterInventory()
 
 Uint8 SoldierAssignmentState::contributionColor(int contribution)
 {
-	float contributionStrength = float(contribution)/float(_difficultyWeight+contribution);
-	return probabilityColor(contributionStrength);
+	// float contributionStrength = float(contribution)/float(_totalWeight+contribution);
+	// return probabilityColor(contributionStrength);
+	return 0;
 }
 
 Uint8 SoldierAssignmentState::probabilityColor(float probability)
@@ -593,13 +473,154 @@ Uint8 SoldierAssignmentState::probabilityColor(float probability)
 	return color;
 }
 
+int SoldierAssignmentState::countContribution(const Soldier *soldier, size_t outcome)
+{
+	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios().at(outcome);
+	float contribution = 0;
+	if (ratios->find("time units")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->tu) * ratios->at("timeUnits"); }
+	if (ratios->find("stamina")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->stamina) * ratios->at("stamina"); }
+	if (ratios->find("health")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->health) * ratios->at("health"); }
+	if (ratios->find("bravery")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->bravery) * ratios->at("bravery"); }
+	if (ratios->find("reactions")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->reactions) * ratios->at("reactions"); }
+	if (ratios->find("firing")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->firing) * ratios->at("firing"); }
+	if (ratios->find("throwing")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->throwing) * ratios->at("throwing"); }
+	if (ratios->find("melee")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->melee) * ratios->at("melee"); }
+	if (ratios->find("strength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->strength) * ratios->at("strength"); }
+	if (ratios->find("psi strength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiStrength) * ratios->at("psi strength"); }
+	if (ratios->find("psi skill")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiSkill) * ratios->at("psi skill"); }
+	if (ratios->find("mana")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->mana) * ratios->at("mana"); }
+	return floor(contribution);
+}
+
+void SoldierAssignmentState::fillContributionTable()
+{
+	for (Soldier * sol : _filteredListOfSoldiers)
+	{
+		std::vector soldierContribution(_outcomeCount, 0);
+		for (int i=0; i<_outcomeCount; i++)
+		{
+			soldierContribution[i] = countContribution(sol, i);
+		}
+		_contributionMap.emplace(sol,soldierContribution);
+	}
+}
+
+void SoldierAssignmentState::recalculateChances()
+{
+	int totalWeight=0;
+	std::vector weights(_outcomeCount,0);
+	for (int i=0; i<_outcomeCount; i++)
+	{
+		int currentWeight = _ruleAssignment.getOutcomeBaseWeights().at(i);
+		for (auto sol:_selectedSoldiers)
+		{
+			currentWeight+=_contributionMap.at(sol).at(i);
+		}
+		Log(LOG_DEBUG) << "currentWeight[" << i << "]: " << currentWeight;
+		currentWeight = std::max(0, currentWeight);
+		totalWeight+=currentWeight;
+		weights[i]=currentWeight;
+		Log(LOG_DEBUG) << "weights[" << i << "]: " << weights[i];
+	}
+	std::vector<size_t> widths(_outcomeCount,0);;
+	Log(LOG_DEBUG) << "totalWeight: " << totalWeight;
+	for (int i=0; i<_outcomeCount; i++)
+	{
+		float ratio = (float)weights[i]/(float)totalWeight;
+		widths[i]=floor(308.*ratio);
+		Log(LOG_DEBUG) << "width[" << i << "]: " << widths[i];
+	}
+	resetOutcomeDistributionsList(widths);
+}
+
 /**
- * Helper for giving out relevant coloring for a single soldier's total contribution stat.
- * @param contribution The total sum of relevant stats.
+ * Helper for coloring the relevant stats table according to outcomes. If a stat affects a single outcome, it will get colored it in its color, if none - _inactiveStatColor, if multiple - _activeStatColor.
+ * @param rowCount Amount of rows for stats (11 without mana and 12 with).
  */
 
-int SoldierAssignmentState::calculateContribution(const Soldier *soldier)
+void SoldierAssignmentState::colorRelevantStatsTable(int rowCount)
 {
-	return soldier->getCurrentStats()->bravery;
+	std::vector statColoring(rowCount, _inactiveStatColor);
+	const std::vector<std::map<std::string, float>> * outcomes = &_ruleAssignment.getOutcomeStatsAndRatios();
+	for (int i=0; i<outcomes->size(); i++)
+	{
+		const std::map<std::string, float>* stats = &outcomes->at(i);
+		if (stats->find("time units")!=stats->end())
+		{
+			if (statColoring[0]!=_inactiveStatColor) { statColoring[0]=_activeStatColor; }
+			else { statColoring[0]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("stamina")!=stats->end())
+		{
+			if (statColoring[1]!=_inactiveStatColor) { statColoring[1]=_activeStatColor; }
+			else { statColoring[1]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("health")!=stats->end())
+		{
+			if (statColoring[2]!=_inactiveStatColor) { statColoring[2]=_activeStatColor; }
+			else { statColoring[2]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("bravery")!=stats->end())
+		{
+			if (statColoring[3]!=_inactiveStatColor) { statColoring[3]=_activeStatColor; }
+			else { statColoring[3]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("reactions")!=stats->end())
+		{
+			if (statColoring[4]!=_inactiveStatColor) { statColoring[4]=_activeStatColor; }
+			else { statColoring[4]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("firing")!=stats->end())
+		{
+			if (statColoring[5]!=_inactiveStatColor) { statColoring[5]=_activeStatColor; }
+			else { statColoring[5]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("throwing")!=stats->end())
+		{
+			if (statColoring[6]!=_inactiveStatColor) { statColoring[6]=_activeStatColor; }
+			else { statColoring[6]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("melee")!=stats->end())
+		{
+			if (statColoring[7]!=_inactiveStatColor) { statColoring[7]=_activeStatColor; }
+			else { statColoring[7]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("strength")!=stats->end())
+		{
+			if (statColoring[8]!=_inactiveStatColor) { statColoring[8]=_activeStatColor; }
+			else { statColoring[8]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("psi strength")!=stats->end())
+		{
+			if (statColoring[9]!=_inactiveStatColor) { statColoring[9]=_activeStatColor; }
+			else { statColoring[9]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("psi skill")!=stats->end())
+		{
+			if (statColoring[10]!=_inactiveStatColor) { statColoring[10]=_activeStatColor; }
+			else { statColoring[10]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+		if (stats->find("mana")!=stats->end())
+		{
+			// Will never be accessed if there is no mana in the ruleset, no need for other checks.
+			if (statColoring[11]!=_inactiveStatColor) { statColoring[11]=_activeStatColor; }
+			else { statColoring[11]=_ruleAssignment.getOutcomeColors().at(i); }
+		}
+	}
+	_lstRelevantStatsTable->setColor(_inactiveStatColor);
+	for (int i=0; i<statColoring.size(); i++) { _lstRelevantStatsTable->setCellColor(0,1+i,statColoring[i]); }
 }
+
+void SoldierAssignmentState::resetOutcomeDistributionsList(const std::vector<size_t> &widths)
+{
+	_lstOutcomeDistribution->clearList();
+	_lstOutcomeDistribution->setColumnsVector(widths);
+	_lstOutcomeDistribution->addRowVector(std::vector (_outcomeCount, bars));
+	for (int i=0; i<_outcomeCount; i++)
+	{
+		_lstOutcomeDistribution->setCellColor(0, i, _ruleAssignment.getOutcomeColors().at(i));
+		_lstOutcomeDistribution->setCellText(0,i,bars);
+	}
+}
+
 }
