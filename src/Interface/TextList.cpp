@@ -292,6 +292,21 @@ void TextList::addRow(int cols, ...)
 }
 
 /**
+ * Adds rows from a string vector for even easier manipulation
+ * @param column_texts Text for each cell in the new row.
+ */
+
+void TextList::addRowVectorString(const std::vector<std::string>& column_texts)
+{
+	std::vector<const char*> char_cols(column_texts.size());
+	for (int i = 0; i < char_cols.size(); ++i)
+	{
+		char_cols[i] = column_texts[i].c_str();
+	}
+	addRowVector(char_cols);
+}
+
+/**
  * Adds rows from a vector to allow for easy runtime modification
  * with variable column counts.
  * @param column_texts Text for each cell in the new row.

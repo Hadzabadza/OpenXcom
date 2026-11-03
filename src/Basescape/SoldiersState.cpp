@@ -148,10 +148,12 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 		_btnMemorial->setVisible(false);
 		_btnPsiTraining->setVisible(false);
 		_btnTraining->setVisible(false);
+		_btnAssignments->setVisible(false);
 
 		_availableOptions.push_back("STR_SOLDIER_INFO");
 		_availableOptions.push_back("STR_MEMORIAL");
 		_availableOptions.push_back("STR_INVENTORY");
+		_availableOptions.push_back("STR_ASSIGNMENTS");
 
 		if (isPsiBtnVisible)
 			_availableOptions.push_back("STR_PSI_TRAINING");

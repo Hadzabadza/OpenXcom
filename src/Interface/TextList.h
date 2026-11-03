@@ -106,6 +106,8 @@ public:
 	size_t getVisibleRows() const;
 	/// Adds a new row to the text list.
 	void addRow(int cols, ...);
+	/// Adds a new row to the text list using string vector.
+	void addRowVectorString(const std::vector<std::string>& column_texts);
 	/// Adds a new row to the text list using const char* vector.
 	void addRowVector(const std::vector<const char*>& column_texts);
 	/// Removes the last row from the text list.

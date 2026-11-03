@@ -18,7 +18,6 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "../Engine/State.h"
-#include "../Mod/RuleEvent.h"
 #include "../Mod/RuleAssignment.h"
 #include "SoldierSortUtil.h"
 
@@ -40,11 +39,10 @@ class SoldierAssignmentState : public State
 {
 private:
 	TextButton *_btnOk, *_btnSendOff;
-	TextEdit *_btnQuickSearch;
 	Window *_window;
 	InteractiveSurface *_interactiveWindow;
 	Text *_txtTitle, *_txtName, *_txtContribution, *_txtRelevantStats, *_txtDescriptionTitle, *_txtDescription, *_txtSelectedSoldiers, *_txtMinimumSoldiers;
-	// ComboBox *_cbxSortBy, *_cbxScreenActions;
+	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
 	std::vector<int> _indices, _filteredIndicesOfSoldiers, _outcomeWeights;
@@ -53,7 +51,6 @@ private:
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
 	std::map<int, bool> _toggledRows;
 	std::vector<SortFunctor *> _sortFunctors;
-	getStatFn_t _dynGetter;
 	std::vector<std::string> _availableOptions;
 	size_t _mainOffset;
 	RuleAssignment& _ruleAssignment;
@@ -77,7 +74,7 @@ public:
 	/// Handler for clicking the OK button.
 	void btnOkClick(Action *action);
 	/// Handler for clicking the Send Off button.
-	void btnSendOffClick(Action *action);
+	void btnSendOffClick();
 	/// Helper for including/excluding a soldier from the assignment, used in multiple mouse events.
 	void toggleSoldier(int row);
 	/// Handler for pressing a mouse button over the Soldiers list.
@@ -94,6 +91,7 @@ public:
 	void fillContributionTable();
 	void recalculateChances();
 	void colorRelevantStatsTable(int rowCount);
+	void cbxSortByChange();
 };
 
 }
