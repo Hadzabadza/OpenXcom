@@ -51,7 +51,7 @@ namespace OpenXcom
 SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assignment) :
 	_base(base), _origSoldierOrder(*_base->getSoldiers()), _dynGetter(NULL), _mainOffset(0), _ruleAssignment(*assignment),
 	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false),
-	_activeStatColor(127), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size()), bars(new char[320]{'|'})
+	_activeStatColor(127), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size()), bars(*new std::string(320, '|'))
 {
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
@@ -122,7 +122,6 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtDescription->setSecondaryColor(_activeStatColor);
 	_txtRelevantStats->setText(tr("STR_ASSIGNMENT_RELEVANT_STATS_UC"));
 
-	_lstSoldiers->setAlign(ALIGN_RIGHT, 1);
 	_lstSoldiers->setSelectable(true);
 	_lstSoldiers->setBackground(_window);
 	_lstSoldiers->setMargin(8);
@@ -158,7 +157,6 @@ void SoldierAssignmentState::init()
 	State::init();
 	initSoldierList(_lstSoldiers->getScroll());
 	initStatList();
-	fillContributionTable();
 	recalculateChances();
 }
 
@@ -218,35 +216,47 @@ void SoldierAssignmentState::initSoldierList(size_t scrl)
 		}
 	}
 
+	fillContributionTable();
+
+	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,16);
+	lstSoldierColumns[0] = 96;
 	if (_dynGetter != NULL)
 	{
-		_lstSoldiers->setColumns(3, 128, 16, 16);
+		lstSoldierColumns.push_back(16);
 	}
-	else
-	{
-		_lstSoldiers->setColumns(2, 128, 16);
-	}
-	// _txtCraft->setX(_txtRank->getX() + 98 - offset);
+	_lstSoldiers->setColumnsVector(lstSoldierColumns);
 
 	BaseSumDailyRecovery recovery = _base->getSumRecoveryPerDay();
 	unsigned int row = 0;
 	for (const auto* soldier : _filteredListOfSoldiers)
 	{
 		std::string craftString = soldier->getCraftString(_game->getLanguage(), recovery);
-		int soldierContribution = countContribution(soldier, 0);
+		std::vector<std::string> lstSoldierContent(1+_outcomeCount, "");
+		lstSoldierContent[0] = soldier->getName(true);
+		for (int i=0; i<_outcomeCount; i++)
+		{
+			lstSoldierContent[1+i]=std::to_string(_contributionMap.at(soldier).at(i));
+
+		}
 		if (_dynGetter != NULL)
 		{
 			// call corresponding getter
 			int dynStat = (*_dynGetter)(_game, soldier);
 			std::ostringstream ss;
 			ss << dynStat;
-			_lstSoldiers->addRow(3, soldier->getName(true).c_str(), std::to_string(soldierContribution).c_str(), ss.str().c_str());
+			lstSoldierContent.push_back(ss.str());
 		}
-		else
+		std::vector<const char*> lstSoldierContentConst(lstSoldierContent.size(), "");
+		for (int i=0; i<lstSoldierContent.size(); i++)
 		{
-			_lstSoldiers->addRow(2, soldier->getName(true).c_str(), std::to_string(soldierContribution).c_str());
+			lstSoldierContentConst[i] = lstSoldierContent[i].c_str();
 		}
-		_lstSoldiers->setCellColor(row, 1, contributionColor(soldierContribution));
+		_lstSoldiers->addRowVector(lstSoldierContentConst);
+		for (int i=0; i<_outcomeCount; i++)
+		{
+			_lstSoldiers->setAlign(ALIGN_RIGHT, i+1);
+			_lstSoldiers->setCellColor(row, i+1, _ruleAssignment.getOutcomeColors().at(i));
+		}
 		_toggledRows.insert(std::pair(row,false));
 		row++;
 	}
@@ -311,14 +321,16 @@ void SoldierAssignmentState::btnOkClick(Action *)
 */
 void SoldierAssignmentState::btnSendOffClick(Action *)
 {
-	// if (!_resolutionsList.empty())
-	// {
-	// 	const RuleEvent *resolution_event = _game->getMod()->getEvent(_resolutionsList.choose(), true);
-	// 	if (resolution_event)
-	// 	{
-	// 		_game->pushState(new GeoscapeEventState(*resolution_event));
-	// 	}
-	// }
+	if (_selectedSoldiers.size()>=_minSoldiers){
+		if (!_resolutionsList.empty())
+		{
+			const RuleEvent *resolution_event = _game->getMod()->getEvent(_resolutionsList.choose(), true);
+			if (resolution_event)
+			{
+				_game->pushState(new GeoscapeEventState(*resolution_event));
+			}
+		}
+	}
 }
 
 void SoldierAssignmentState::toggleSoldier(int row)
@@ -440,39 +452,6 @@ void SoldierAssignmentState::enterInventory()
 		}
 }
 
-/**
- * Helper for giving out relevant coloring for a single soldier's total contribution stat.
- * @param contribution The total sum of relevant stats.
- */
-
-Uint8 SoldierAssignmentState::contributionColor(int contribution)
-{
-	// float contributionStrength = float(contribution)/float(_totalWeight+contribution);
-	// return probabilityColor(contributionStrength);
-	return 0;
-}
-
-Uint8 SoldierAssignmentState::probabilityColor(float probability)
-{
-	static Uint8 color;
-	if(probability > 0.33)
-	{
-		if (probability > 0.66)
-		{
-			color = 47;
-		}
-		else
-		{
-			color = 95;
-		}
-	}
-	else
-	{
-		color = 35;
-	}
-	return color;
-}
-
 int SoldierAssignmentState::countContribution(const Soldier *soldier, size_t outcome)
 {
 	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios().at(outcome);
@@ -520,6 +499,7 @@ void SoldierAssignmentState::recalculateChances()
 		currentWeight = std::max(0, currentWeight);
 		totalWeight+=currentWeight;
 		weights[i]=currentWeight;
+		_resolutionsList.set(_ruleAssignment.getOutcomeNames().at(i),currentWeight);
 		Log(LOG_DEBUG) << "weights[" << i << "]: " << weights[i];
 	}
 	std::vector<size_t> widths(_outcomeCount,0);;
@@ -527,7 +507,7 @@ void SoldierAssignmentState::recalculateChances()
 	for (int i=0; i<_outcomeCount; i++)
 	{
 		float ratio = (float)weights[i]/(float)totalWeight;
-		widths[i]=floor(308.*ratio);
+		widths[i]=floor(304.*ratio);
 		Log(LOG_DEBUG) << "width[" << i << "]: " << widths[i];
 	}
 	resetOutcomeDistributionsList(widths);
@@ -615,11 +595,10 @@ void SoldierAssignmentState::resetOutcomeDistributionsList(const std::vector<siz
 {
 	_lstOutcomeDistribution->clearList();
 	_lstOutcomeDistribution->setColumnsVector(widths);
-	_lstOutcomeDistribution->addRowVector(std::vector (_outcomeCount, bars));
+	_lstOutcomeDistribution->addRowVector(std::vector (_outcomeCount, bars.c_str()));
 	for (int i=0; i<_outcomeCount; i++)
 	{
 		_lstOutcomeDistribution->setCellColor(0, i, _ruleAssignment.getOutcomeColors().at(i));
-		_lstOutcomeDistribution->setCellText(0,i,bars);
 	}
 }
 

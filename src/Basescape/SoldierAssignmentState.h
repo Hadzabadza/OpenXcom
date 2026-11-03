@@ -60,7 +60,8 @@ private:
 	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
 	bool _lmb;
 	Uint8 _activeStatColor, _inactiveStatColor;
-	const char* bars;
+	std::string bars;
+	WeightedOptions _resolutionsList;
 
 public:
 	/// Creates the Soldiers state.
@@ -87,10 +88,6 @@ public:
 	void lstSoldiersMultiselect();
 	/// Helper for enering the inventory screen. Copypasted from SoldierState.
 	void enterInventory();
-	/// Helper for coloring contributions by weight.
-	Uint8 contributionColor(int contribution);
-	/// General helper for colors.
-	Uint8 probabilityColor(float probabilityColor);
 	/// Helper for calculating a soldier's contribution to assignment success.
 	int countContribution(const Soldier* soldier, size_t outcome);
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
