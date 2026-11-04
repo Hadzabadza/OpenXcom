@@ -41,7 +41,7 @@ private:
 	TextButton *_btnOk, *_btnSendOff;
 	Window *_window;
 	InteractiveSurface *_interactiveWindow;
-	Text *_txtTitle, *_txtName, *_txtContribution, *_txtDescriptionTitle, *_txtDescription, *_txtMaximumSoldiers, *_txtMinimumSoldiers;
+	Text *_txtTitle, *_txtName, *_txtContribution, *_txtDescriptionTitle, *_txtDescription, *_txtMaximumSoldiers, *_txtMinimumSoldiers, *_txtCalculationType;
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
@@ -49,15 +49,15 @@ private:
 	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers;
 	std::vector<const Soldier*> _selectedSoldiers;
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
-	std::map<int, bool> _toggledRows;
+	std::map<int, bool> _affectedRows;
 	std::vector<SortFunctor *> _sortFunctors;
 	std::vector<std::string> _availableOptions;
 	size_t _mainOffset;
 	RuleAssignment& _ruleAssignment;
 	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
-	bool _lmb;
+	bool _lmb, _toggleTo;
 	Uint8 _activeStatColor, _inactiveStatColor;
-	std::string bars;
+	std::string _bars, _calculationType;
 	WeightedOptions _resolutionsList;
 
 public:
@@ -79,7 +79,7 @@ public:
 	void toggleSoldier(int row);
 	/// Handler for pressing a mouse button over the Soldiers list.
 	void lstSoldiersMousePress(Action *action);
-	/// Handler for releasing a mouse button over the Soldiers list.
+	/// Hacky handler for releasing a mouse button over the hidden interactiveWindow surface.
 	void lstSoldiersMouseRelease(Action *action);
 	/// Handler for moving a clicked mouse button over soldier entries.
 	void lstSoldiersMultiselect();
@@ -92,7 +92,7 @@ public:
 	void recalculateChances();
 	void colorRelevantStatsTable(int outcomeIndex=-1) const;
 	void cbxSortByChange();
-	void lstSortByClick();
+	void lstSortByClick(Action * action);
 	void sortAndReinitSoldierList(int sortIndex);
 };
 

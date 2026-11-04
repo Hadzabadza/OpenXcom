@@ -50,13 +50,14 @@ namespace OpenXcom
  */
 SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assignment) :
 	_base(base), _origSoldierOrder(*_base->getSoldiers()), _mainOffset(0), _ruleAssignment(*assignment),
-	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false),
-	_activeStatColor(0), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size()), bars(*new std::string(320, '|'))
+	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false), _toggleTo(false),
+	_activeStatColor(0), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size()), _bars(*new std::string(320, '|'))
 {
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
 	_btnOk = new TextButton(148, 16, 164, 176);
 	_btnSendOff = new TextButton(148, 16, 8, 176);
+	_txtCalculationType = new Text(240, 10, 8, 145);
 	_txtMinimumSoldiers = new Text(32, 16, 234, 155);
 	_txtMaximumSoldiers = new Text(48, 16, 258, 155);
 	_txtTitle = new Text(200, 17, 5, 9);
@@ -66,7 +67,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtDescription = new Text(124, 120, 8, 40);
 	_lstRelevantStatsTable = new TextList(288, 9, 5, 155);
 	_lstSoldiers = new TextList(150, 104, 140, 40);
-	_lstOutcomeDistribution = new TextList(308, 32, 8, 165);
+	_lstOutcomeDistribution = new TextList(308, 16, 8, 165);
 	_cbxSortBy = new ComboBox(this, 120, 16, 192, 8, false);
 	_interactiveWindow = new InteractiveSurface(320, 200, 0, 0);
 
@@ -76,6 +77,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	add(_window, "window", "soldierAssignments");
 	add(_btnOk, "button", "soldierAssignments");
 	add(_btnSendOff, "button", "soldierAssignments");
+	add(_txtCalculationType, "text", "soldierAssignments");
 	add(_txtMinimumSoldiers, "text", "soldierAssignments");
 	add(_txtMaximumSoldiers, "text", "soldierAssignments");
 	add(_txtTitle, "text", "soldierAssignments");
@@ -106,6 +108,16 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtTitle->setText(tr(_ruleAssignment.getName()));
 
 	_txtName->setText(tr("STR_NAME_UC"));
+	_calculationType = _ruleAssignment.getOutcomeCalculationTypes()[0];
+	for (int i=1; i<_ruleAssignment.getOutcomeCalculationTypes().size(); i++)
+	{
+		if (_calculationType!= _ruleAssignment.getOutcomeCalculationTypes()[i])
+		{
+			_calculationType = "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_NOTICE";
+			break;
+		}
+	}
+	_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
 	_txtMinimumSoldiers->setText(tr("STR_ASSIGNMENT_MIN_SOLDIERS_UC").arg(_minSoldiers));
 	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(0).arg(_maxSoldiers));
 	_txtMaximumSoldiers->setAlign(ALIGN_RIGHT);
@@ -149,7 +161,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_lstOutcomeDistribution->setBackground(_window);
 	_lstOutcomeDistribution->setSelectable(true);
 	_lstOutcomeDistribution->setSelectableColumns(true);
-	_lstOutcomeDistribution->onMouseClick((ActionHandler)&SoldierAssignmentState::lstSortByClick);
+	_lstOutcomeDistribution->onMouseRelease((ActionHandler)&SoldierAssignmentState::lstSortByClick);
 }
 
 /**
@@ -196,14 +208,14 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 		lstSoldierContent[0] = soldier->getName(true);
 		for (int i=0; i<_outcomeCount; i++)
 		{
-			lstSoldierContent[1+i]=std::to_string(_contributionMap.at(soldier).at(i));
+			lstSoldierContent[1+i]=std::to_string(_contributionMap[soldier][i]);
 		}
 		_lstSoldiers->addRowVectorString(lstSoldierContent);
 		for (int i=0; i<_outcomeCount; i++)
 		{
-			_lstSoldiers->setCellColor(row, i+1, _ruleAssignment.getOutcomeColors().at(i));
+			_lstSoldiers->setCellColor(row, i+1, _ruleAssignment.getOutcomeColors()[i]);
 		}
-		_toggledRows.insert(std::pair(row,false));
+		_affectedRows.insert(std::pair(row,false));
 		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), soldier);
 		if (soldier_iter != _selectedSoldiers.end())
 		{
@@ -263,14 +275,14 @@ void SoldierAssignmentState::btnSendOffClick() const
 
 void SoldierAssignmentState::toggleSoldier(int row)
 {
-	if (row >= 0 && _toggledRows.at(row) != true)
+	if (row >= 0 && _affectedRows[row] != true)
 	{
-		_toggledRows.at(row) = true;
+		_affectedRows[row] = true;
 		Soldier *_soldier = _filteredListOfSoldiers[row];
 		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), _soldier);
 		if (soldier_iter == _selectedSoldiers.end())
 		{
-			if (_selectedSoldiers.size()<_maxSoldiers)
+			if (_selectedSoldiers.size()<_maxSoldiers && _toggleTo)
 			{
 				_selectedSoldiers.push_back(_soldier);
 				_lstSoldiers->setCellColor(row,0, _lstSoldiers->getSecondaryColor());
@@ -279,9 +291,12 @@ void SoldierAssignmentState::toggleSoldier(int row)
 		}
 		else
 		{
-			_selectedSoldiers.erase(soldier_iter);
-			_lstSoldiers->setCellColor(row,0, _lstSoldiers->getColor());
-			recalculateChances();
+			if (!_toggleTo)
+			{
+				_selectedSoldiers.erase(soldier_iter);
+				_lstSoldiers->setCellColor(row,0, _lstSoldiers->getColor());
+				recalculateChances();
+			}
 		}
 		_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiers));
 	}
@@ -296,7 +311,11 @@ void SoldierAssignmentState::lstSoldiersMousePress(Action *action)
 {
 	if (_game->isLeftClick(action, true))
 	{
-		toggleSoldier(_lstSoldiers->getSelectedRow());
+		int row = _lstSoldiers->getSelectedRow();
+		Soldier *_soldier = _filteredListOfSoldiers[row];
+		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), _soldier);
+		_toggleTo = soldier_iter == _selectedSoldiers.end();
+		toggleSoldier(row);
 		_lmb=true;
 	}
 }
@@ -310,14 +329,14 @@ void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 {
 	if (_game->isLeftClick(action, true))
 	{
-		for (auto& [key, value] : _toggledRows) value = false;
+		for (auto& [key, value] : _affectedRows) value = false;
 		_lmb=false;
 	}
-	else if (_game->isMiddleClick(action, true))
+	else if (_game->isMiddleClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
 	{
 		_game->pushState(new SoldierInfoState(_base, _lstSoldiers->getSelectedRow(), false));
 	}
-	else if (_game->isRightClick(action, true))
+	else if (_game->isRightClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
 	{
 		enterInventory();
 	}
@@ -382,7 +401,7 @@ void SoldierAssignmentState::enterInventory() const
 
 int SoldierAssignmentState::countContribution(const Soldier *soldier, const size_t outcome) const
 {
-	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios().at(outcome);
+	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios()[outcome];
 	float contribution = 0;
 	if (ratios->find("time units")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->tu) * ratios->at("timeUnits"); }
 	if (ratios->find("stamina")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->stamina) * ratios->at("stamina"); }
@@ -418,20 +437,45 @@ void SoldierAssignmentState::recalculateChances()
 	std::vector weights(_outcomeCount,0);
 	for (int i=0; i<_outcomeCount; i++)
 	{
-		int currentWeight = _ruleAssignment.getOutcomeBaseWeights().at(i);
-		for (auto sol:_selectedSoldiers)
+		std::string calcTypes = _ruleAssignment.getOutcomeCalculationTypes()[i];
+		int currentWeight=0;
+		if (!_selectedSoldiers.empty())
 		{
-			currentWeight+=_contributionMap.at(sol).at(i);
+			currentWeight=_contributionMap[_selectedSoldiers[0]][i];
+			for (int j=1; j<_selectedSoldiers.size(); j++)
+			{
+				if (calcTypes == "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_ADDITIVE_UC"|| calcTypes == "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_AVERAGE_UC")
+				{
+					currentWeight+=_contributionMap[_selectedSoldiers[j]][i];
+				} else if (calcTypes == "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_LOWEST_UC")
+				{
+					if (abs(_contributionMap[_selectedSoldiers[j]][i])<abs(currentWeight))
+					{
+						currentWeight=_contributionMap[_selectedSoldiers[j]][i];
+					}
+				}
+				// Log(LOG_DEBUG) << "currentJWeight[" << j << "]: " << currentWeight;
+			}
+			if (calcTypes == "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_AVERAGE_UC")
+			{
+				currentWeight/=int(_selectedSoldiers.size());
+				Log(LOG_DEBUG) << "currentWeight[" << i << "]: " << currentWeight;
+			}
+
 		}
-		// Log(LOG_DEBUG) << "currentWeight[" << i << "]: " << currentWeight;
+
+		currentWeight += _ruleAssignment.getOutcomeBaseWeights()[i];
 		currentWeight = std::max(0, currentWeight);
+		// Log(LOG_DEBUG) << "currentWeight[" << i << "]: " << currentWeight;
+		_resolutionsList.set(_ruleAssignment.getResolutionTypes()[i],currentWeight);
 		totalWeight+=currentWeight;
 		weights[i]=currentWeight;
-		_resolutionsList.set(_ruleAssignment.getResolutionTypes().at(i),currentWeight);
+		// Log(LOG_DEBUG) << "currentWeight[" << i << "]: " << currentWeight;
 		// Log(LOG_DEBUG) << "weights[" << i << "]: " << weights[i];
 	}
+
 	std::vector<size_t> widths(_outcomeCount,0);;
-	// Log(LOG_DEBUG) << "totalWeight: " << totalWeight;
+	Log(LOG_DEBUG) << "totalWeight: " << totalWeight;
 	for (int i=0; i<_outcomeCount; i++)
 	{
 		float ratio = (float)weights[i]/(float)totalWeight;
@@ -465,67 +509,67 @@ void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex) const
 	}
 	for (const Uint8 i:outcomeIndices)
 	{
-		const std::map<std::string, float>* stats = &_ruleAssignment.getOutcomeStatsAndRatios().at(i);
+		const std::map<std::string, float>* stats = &_ruleAssignment.getOutcomeStatsAndRatios()[i];
 		if (stats->find("time units")!=stats->end())
 		{
 			if (statColoring[0]!=_inactiveStatColor) { statColoring[0]=_activeStatColor; }
-			else { statColoring[0]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[0]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("stamina")!=stats->end())
 		{
 			if (statColoring[1]!=_inactiveStatColor) { statColoring[1]=_activeStatColor; }
-			else { statColoring[1]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[1]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("health")!=stats->end())
 		{
 			if (statColoring[2]!=_inactiveStatColor) { statColoring[2]=_activeStatColor; }
-			else { statColoring[2]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[2]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("bravery")!=stats->end())
 		{
 			if (statColoring[3]!=_inactiveStatColor) { statColoring[3]=_activeStatColor; }
-			else { statColoring[3]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[3]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("reactions")!=stats->end())
 		{
 			if (statColoring[4]!=_inactiveStatColor) { statColoring[4]=_activeStatColor; }
-			else { statColoring[4]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[4]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("firing")!=stats->end())
 		{
 			if (statColoring[5]!=_inactiveStatColor) { statColoring[5]=_activeStatColor; }
-			else { statColoring[5]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[5]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("throwing")!=stats->end())
 		{
 			if (statColoring[6]!=_inactiveStatColor) { statColoring[6]=_activeStatColor; }
-			else { statColoring[6]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[6]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("melee")!=stats->end())
 		{
 			if (statColoring[7]!=_inactiveStatColor) { statColoring[7]=_activeStatColor; }
-			else { statColoring[7]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[7]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("strength")!=stats->end())
 		{
 			if (statColoring[8]!=_inactiveStatColor) { statColoring[8]=_activeStatColor; }
-			else { statColoring[8]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[8]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("psi strength")!=stats->end())
 		{
 			if (statColoring[9]!=_inactiveStatColor) { statColoring[9]=_activeStatColor; }
-			else { statColoring[9]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[9]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("psi skill")!=stats->end())
 		{
 			if (statColoring[10]!=_inactiveStatColor) { statColoring[10]=_activeStatColor; }
-			else { statColoring[10]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[10]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 		if (stats->find("mana")!=stats->end())
 		{
 			// Will never be accessed if there is no mana in the ruleset, no need for other checks.
 			if (statColoring[11]!=_inactiveStatColor) { statColoring[11]=_activeStatColor; }
-			else { statColoring[11]=_ruleAssignment.getOutcomeColors().at(i); }
+			else { statColoring[11]=_ruleAssignment.getOutcomeColors()[i]; }
 		}
 	}
 	_lstRelevantStatsTable->setColor(_inactiveStatColor);
@@ -536,10 +580,10 @@ void SoldierAssignmentState::resetOutcomeDistributionsList(const std::vector<siz
 {
 	_lstOutcomeDistribution->clearList();
 	_lstOutcomeDistribution->setColumnsVector(widths);
-	_lstOutcomeDistribution->addRowVector(std::vector (_outcomeCount, bars.c_str()));
+	_lstOutcomeDistribution->addRowVector(std::vector (_outcomeCount, _bars.c_str()));
 	for (int i=0; i<_outcomeCount; i++)
 	{
-		_lstOutcomeDistribution->setCellColor(0, i, _ruleAssignment.getOutcomeColors().at(i));
+		_lstOutcomeDistribution->setCellColor(0, i, _ruleAssignment.getOutcomeColors()[i]);
 	}
 }
 
@@ -548,10 +592,18 @@ void SoldierAssignmentState::cbxSortByChange()
 	sortAndReinitSoldierList(_cbxSortBy->getSelected());
 }
 
-void SoldierAssignmentState::lstSortByClick()
+void SoldierAssignmentState::lstSortByClick(Action * action)
 {
-	_cbxSortBy->setSelected(_lstOutcomeDistribution->getSelectedColumn()+1);
-	sortAndReinitSoldierList(_lstOutcomeDistribution->getSelectedColumn()+1);
+	if (_game->isLeftClick(action, true))
+	{
+		_cbxSortBy->setSelected(_lstOutcomeDistribution->getSelectedColumn()+1);
+		sortAndReinitSoldierList(_lstOutcomeDistribution->getSelectedColumn()+1);
+	}
+	else if (_game->isRightClick(action, true))
+	{
+		_cbxSortBy->setSelected(0);
+		sortAndReinitSoldierList(0);
+	}
 }
 
 void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
@@ -560,23 +612,25 @@ void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
 	if (sortIndex==0)
 	{
 		_filteredListOfSoldiers=_origSoldierOrder;
+		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
 		colorRelevantStatsTable(-1);
 	}
 	else
 	{
 		colorRelevantStatsTable(sortIndex-1);
+		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_ruleAssignment.getOutcomeCalculationTypes()[sortIndex-1])));
 		if (_game->isShiftPressed())
 		{
 			std::stable_sort(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(),
 			[&](Soldier* a, Soldier* b) {
-				return abs(_contributionMap.at(a).at(sortIndex-1)) < abs(_contributionMap.at(b).at(sortIndex-1));
+				return abs(_contributionMap[a][sortIndex-1]) < abs(_contributionMap[b][sortIndex-1]);
 			});
 		}
 		else
 		{
 			std::stable_sort(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(),
 			[&](Soldier* a, Soldier* b) {
-				return abs(_contributionMap.at(a).at(sortIndex-1)) > abs(_contributionMap.at(b).at(sortIndex-1));
+				return abs(_contributionMap[a][sortIndex-1]) > abs(_contributionMap[b][sortIndex-1]);
 			});
 		}
 	}
