@@ -17,17 +17,18 @@
  * along with OpenXcom.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "TextList.h"
-#include <cstdarg>
-#include <cmath>
-#include <algorithm>
 #include "../Engine/Action.h"
 #include "../Engine/Font.h"
-#include "../Engine/Palette.h"
+#include "../Engine/Logger.h"
 #include "../Engine/Options.h"
+#include "../Engine/Palette.h"
+#include "../fmath.h"
 #include "ArrowButton.h"
 #include "ComboBox.h"
 #include "ScrollBar.h"
-#include "../fmath.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdarg>
 
 namespace OpenXcom
 {
@@ -40,8 +41,8 @@ namespace OpenXcom
  * @param y Y position in pixels.
  */
 TextList::TextList(int width, int height, int x, int y) : InteractiveSurface(width, height, x, y),
-	_big(0), _small(0), _font(0), _lang(nullptr), _scroll(0), _visibleRows(0), _selRow(0), _color(0), _color2(0),
-	_dot(false), _selectable(false), _condensed(false), _contrast(false), _wrap(false), _flooding(false), _ignoreSeparators(false),
+	_big(0), _small(0), _font(0), _lang(nullptr), _scroll(0), _visibleRows(0), _selRow(0), _selCol(0), _color(0), _color2(0),
+	_dot(false), _selectable(false), _selectableColumns(false), _condensed(false), _contrast(false), _wrap(false), _flooding(false), _ignoreSeparators(false),
 	_bg(0), _selector(0), _margin(0), _scrolling(true), _arrowPos(-1), _scrollPos(4), _arrowType(ARROW_VERTICAL),
 	_leftClick(0), _leftPress(0), _leftRelease(0), _rightClick(0), _rightPress(0), _rightRelease(0),
 	_arrowsLeftEdge(0), _arrowsRightEdge(0), _noScrollLeftEdge(0), _noScrollRightEdge(0), _comboBox(0)
@@ -710,6 +711,16 @@ void TextList::setSelectable(bool selectable)
 }
 
 /**
+ * If enabled together with _selectable, the list will also track _selCol
+ * and highlight each cell instead of just rows.
+ * @param selectableColumns Selectable setting.
+ */
+void TextList::setSelectableColumns(bool selectableColumns)
+{
+	_selectableColumns = selectableColumns;
+}
+
+/**
  * Changes the text list to use the big-size font.
  */
 void TextList::setBig()
@@ -763,6 +774,23 @@ unsigned int TextList::getSelectedRow() const
 	else
 	{
 		return _rows[_selRow];
+	}
+}
+
+/**
+ * Returns the currently selected column if the text
+ * list is selectable.
+ * @return Selected column, -1 if none.
+ */
+unsigned int TextList::getSelectedColumn() const
+{
+	if (_columns.empty() || _selCol >= _columns.size())
+	{
+		return -1;
+	}
+	else
+	{
+		return _selCol;
 	}
 }
 
@@ -1306,7 +1334,28 @@ void TextList::mouseOver(Action *action, State *state)
 		_selRow = std::max(0, (int)(_scroll + (int)floor(action->getRelativeYMouse() / (rowHeight * action->getYScale()))));
 		if (_selRow < _rows.size())
 		{
-			Text *selText = _texts[_rows[_selRow]].front();
+			if (_selectableColumns)
+			{
+				Uint16 countMouseX = std::max(0, (int)floor(action->getRelativeXMouse() / action->getXScale()));
+				if (countMouseX < _width + _margin * _columns.size())
+				{
+					unsigned int currentWidth = _margin;
+					for (int i=0; i<_columns.size(); i++)
+					{
+						currentWidth+=_columns[i];
+						if (countMouseX<currentWidth)
+						{
+							_selCol=i;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				_selCol=0;
+			}
+			Text *selText = _texts[_rows[_selRow]][_selCol];
 			int y = getY() + selText->getY();
 			int actualHeight = selText->getHeight() + _font->getSpacing(); //current line height
 			if (y < getY() || y + actualHeight > getY() + getHeight())
@@ -1317,11 +1366,21 @@ void TextList::mouseOver(Action *action, State *state)
 			{
 				y = getY();
 			}
-			if (_selector->getHeight() != actualHeight)
+			if (_selector->getHeight() != actualHeight || _selectableColumns)
 			{
 				// resizing doesn't work, but recreating does, so let's do that!
 				delete _selector;
-				_selector = new Surface(getWidth(), actualHeight, getX(), y);
+				if (_selectableColumns)
+				{
+					int actualWidth = selText->getWidth(); //current line width
+					int x = getX() + selText->getX();
+					_selector = new Surface(actualWidth, actualHeight, x, y);
+					_selector->setX(x);
+				}
+				else
+				{
+					_selector = new Surface(getWidth(), actualHeight, getX(), y);
+				}
 				_selector->setPalette(getPalette());
 			}
 			_selector->setY(y);

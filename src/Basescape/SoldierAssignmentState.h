@@ -41,7 +41,7 @@ private:
 	TextButton *_btnOk, *_btnSendOff;
 	Window *_window;
 	InteractiveSurface *_interactiveWindow;
-	Text *_txtTitle, *_txtName, *_txtContribution, *_txtRelevantStats, *_txtDescriptionTitle, *_txtDescription, *_txtSelectedSoldiers, *_txtMinimumSoldiers;
+	Text *_txtTitle, *_txtName, *_txtContribution, *_txtDescriptionTitle, *_txtDescription, *_txtMaximumSoldiers, *_txtMinimumSoldiers;
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
@@ -68,13 +68,13 @@ public:
 	/// Initializes the state.
 	void init() override;
 	/// Separate helper for initializing the list of soldiers.
-	void initSoldierList(size_t scrl);
+	void initSoldierList(size_t scrl, std::vector<Soldier *> * filteredList);
 	/// Another helper for initializing the list of relevant stats for the check.
 	void initStatList();
 	/// Handler for clicking the OK button.
-	void btnOkClick(Action *action);
+	void btnOkClick();
 	/// Handler for clicking the Send Off button.
-	void btnSendOffClick();
+	void btnSendOffClick() const;
 	/// Helper for including/excluding a soldier from the assignment, used in multiple mouse events.
 	void toggleSoldier(int row);
 	/// Handler for pressing a mouse button over the Soldiers list.
@@ -84,14 +84,16 @@ public:
 	/// Handler for moving a clicked mouse button over soldier entries.
 	void lstSoldiersMultiselect();
 	/// Helper for enering the inventory screen. Copypasted from SoldierState.
-	void enterInventory();
+	void enterInventory() const;
 	/// Helper for calculating a soldier's contribution to assignment success.
-	int countContribution(const Soldier* soldier, size_t outcome);
+	int countContribution(const Soldier* soldier, size_t outcome) const;
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
 	void fillContributionTable();
 	void recalculateChances();
-	void colorRelevantStatsTable(int rowCount);
+	void colorRelevantStatsTable(int outcomeIndex=-1) const;
 	void cbxSortByChange();
+	void lstSortByClick();
+	void sortAndReinitSoldierList(int sortIndex);
 };
 
 }

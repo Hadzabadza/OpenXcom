@@ -44,10 +44,10 @@ private:
 	std::vector<size_t> _columns, _rows;
 	Font *_big, *_small, *_font;
 	Language *_lang;
-	size_t _scroll, _visibleRows, _selRow;
+	size_t _scroll, _visibleRows, _selRow, _selCol;
 	Uint8 _color, _color2;
 	std::map<int, TextHAlign> _align;
-	bool _dot, _selectable, _condensed, _contrast, _wrap, _flooding, _ignoreSeparators;
+	bool _dot, _selectable, _selectableColumns, _condensed, _contrast, _wrap, _flooding, _ignoreSeparators;
 	Surface *_bg, *_selector;
 	ArrowButton *_up, *_down;
 	ScrollBar *_scrollbar;
@@ -140,6 +140,8 @@ public:
 	void setDot(bool dot);
 	/// Sets whether the list is selectable.
 	void setSelectable(bool selectable);
+	/// Sets whether the list will also track columns for selection.
+	void setSelectableColumns(bool selectableColumns);
 	/// Sets the text size to big.
 	void setBig();
 	/// Sets the text size to small.
@@ -150,6 +152,8 @@ public:
 	void setBackground(Surface *bg);
 	/// Gets the selected row in the list.
 	unsigned int getSelectedRow() const;
+	/// Gets the selected column in the list.
+	unsigned int getSelectedColumn() const;
 	/// Sets the margin of the text list.
 	void setMargin(int margin);
 	/// Gets the margin of the text list.
