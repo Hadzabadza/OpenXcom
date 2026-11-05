@@ -19,7 +19,6 @@
  */
 #include <string>
 #include "../Engine/Yaml.h"
-#include "../Savegame/WeightedOptions.h"
 
 namespace OpenXcom
 {

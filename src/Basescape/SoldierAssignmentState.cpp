@@ -596,27 +596,27 @@ void SoldierAssignmentState::lstSortByClick(Action * action)
 {
 	if (_game->isLeftClick(action, true))
 	{
-		_cbxSortBy->setSelected(_lstOutcomeDistribution->getSelectedColumn()+1);
 		sortAndReinitSoldierList(_lstOutcomeDistribution->getSelectedColumn()+1);
 	}
 	else if (_game->isRightClick(action, true))
 	{
-		_cbxSortBy->setSelected(0);
 		sortAndReinitSoldierList(0);
 	}
 }
 
 void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
 {
-	;
+	std::vector<Soldier *> checker = _filteredListOfSoldiers;
 	if (sortIndex==0)
 	{
+		_cbxSortBy->setSelected(0);
 		_filteredListOfSoldiers=_origSoldierOrder;
 		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
 		colorRelevantStatsTable(-1);
 	}
 	else
 	{
+		_cbxSortBy->setSelected(sortIndex);
 		colorRelevantStatsTable(sortIndex-1);
 		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_ruleAssignment.getOutcomeCalculationTypes()[sortIndex-1])));
 		if (_game->isShiftPressed())
@@ -632,6 +632,11 @@ void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
 			[&](Soldier* a, Soldier* b) {
 				return abs(_contributionMap[a][sortIndex-1]) > abs(_contributionMap[b][sortIndex-1]);
 			});
+		}
+		if (checker == _filteredListOfSoldiers)
+		{
+			sortAndReinitSoldierList(0);
+			return;
 		}
 	}
 	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);

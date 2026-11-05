@@ -260,6 +260,8 @@ private:
 	std::string _manaUnlockResearchName;
 	const RuleResearch* _manaUnlockResearch = nullptr;
 
+	bool _assignmentsEnabled;
+
 	std::string _loseMoney, _loseRating, _loseDefeat;
 	int _ufoGlancingHitThreshold, _ufoBeamWidthParameter;
 	int _ufoTractorBeamSizeModifiers[5];
@@ -951,6 +953,9 @@ public:
 	int getHealthWoundThreshold() const { return _healthMissingWoundThreshold; }
 	/// Should a soldier's health be fully replenished after a mission?
 	bool getReplenishHealthAfterMission() const { return _healthReplenishAfterMission; }
+
+	/// Is the assignments feature enabled (default false)?
+	bool isAssignmentsFeatureEnabled() const { return _assignmentsEnabled; }
 
 	/// Gets the cutscene ID that should be played when the player loses due to poor economy management.
 	const std::string &getLoseMoneyCutscene() const { return _loseMoney; }

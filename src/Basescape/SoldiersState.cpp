@@ -60,16 +60,15 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 {
 	bool isPsiBtnVisible = Options::anytimePsiTraining && _base->getAvailablePsiLabs() > 0;
 	bool isTrnBtnVisible = _base->getAvailableTraining() > 0;
+	bool isAssignmentsBtnVisible = _game->getMod()->isAssignmentsFeatureEnabled();
 	std::vector<RuleSoldierTransformation* > availableTransformations;
 	_game->getSavedGame()->getAvailableTransformations(availableTransformations, _game->getMod(), _base);
 	bool isTransformationAvailable = availableTransformations.size() > 0;
 
 	// if both training buttons would be displayed, or if there are any transformations, switch to combobox
-	bool showCombobox = isTransformationAvailable || (isPsiBtnVisible && isTrnBtnVisible) || Options::oxceAlternateCraftEquipmentManagement;
+	bool showCombobox = isTransformationAvailable || (isPsiBtnVisible && isTrnBtnVisible) || (isAssignmentsBtnVisible && (isPsiBtnVisible || isTrnBtnVisible)) || Options::oxceAlternateCraftEquipmentManagement;
 	// 3 buttons or 2 buttons?
-	bool showThreeButtons = true;
-	// bool showThreeButtons = !showCombobox && (isPsiBtnVisible || isTrnBtnVisible);
-
+	bool showThreeButtons = !showCombobox && (isPsiBtnVisible || isTrnBtnVisible || isAssignmentsBtnVisible);
 
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0);
@@ -77,13 +76,13 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 	{
 		_btnOk = preAdd(new TextButton(96, 16, 216, 176));
 		_btnMemorial = preAdd(new TextButton(96, 16, 8, 176));
-		_btnAssignments = preAdd(new TextButton(96, 16, 112, 176));
 	}
 	else
 	{
 		_btnOk = preAdd(new TextButton(148, 16, 164, 176));
 		_btnMemorial = preAdd(new TextButton(148, 16, 8, 176));
 	}
+	_btnAssignments = preAdd(new TextButton(96, 16, 112, 176));
 	_btnPsiTraining = preAdd(new TextButton(96, 16, 112, 176));
 	_btnTraining = preAdd(new TextButton(96, 16, 112, 176));
 	_cbxScreenActions = preAdd(new ComboBox(this, 148, 16, 8, 176, true));
@@ -141,6 +140,7 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 
 	_btnAssignments->setText(tr("STR_ASSIGNMENTS"));
 	_btnAssignments->onMouseClick((ActionHandler)&SoldiersState::btnAssignmentsClick);
+	_btnAssignments->setVisible(isAssignmentsBtnVisible);
 
 	_availableOptions.clear();
 	if (showCombobox)
@@ -153,7 +153,9 @@ SoldiersState::SoldiersState(Base *base) : _base(base), _origSoldierOrder(*_base
 		_availableOptions.push_back("STR_SOLDIER_INFO");
 		_availableOptions.push_back("STR_MEMORIAL");
 		_availableOptions.push_back("STR_INVENTORY");
-		_availableOptions.push_back("STR_ASSIGNMENTS");
+
+		if (isAssignmentsBtnVisible)
+			_availableOptions.push_back("STR_ASSIGNMENTS");
 
 		if (isPsiBtnVisible)
 			_availableOptions.push_back("STR_PSI_TRAINING");

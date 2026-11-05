@@ -443,6 +443,7 @@ Mod::Mod() :
 	_surrenderMode(0),
 	_bughuntMinTurn(999), _bughuntMaxEnemies(2), _bughuntRank(0), _bughuntLowMorale(40), _bughuntTimeUnitsLeft(60),
 	_manaEnabled(false), _manaBattleUI(false), _manaTrainingPrimary(false), _manaTrainingSecondary(false), _manaReplenishAfterMission(true),
+	_assignmentsEnabled(false),
 	_loseMoney("loseGame"), _loseRating("loseGame"), _loseDefeat("loseGame"),
 	_ufoGlancingHitThreshold(0), _ufoBeamWidthParameter(1000),
 	_escortRange(20), _drawEnemyRadarCircles(1), _escortsJoinFightAgainstHK(true), _hunterKillerFastRetarget(true),
@@ -3324,6 +3325,10 @@ void Mod::loadFile(const FileMap::FileRecord &filerec, ModScript &parsers)
 		nodeHealth.tryRead("replenishAfterMission", _healthReplenishAfterMission);
 	}
 
+	if (const auto& nodeAssignments = loadDocInfoHelper("assignment_globals"))
+	{
+		nodeAssignments.tryRead("enabled", _assignmentsEnabled);
+	}
 
 	if (const auto& nodeGameOver = loadDocInfoHelper("gameOver"))
 	{
