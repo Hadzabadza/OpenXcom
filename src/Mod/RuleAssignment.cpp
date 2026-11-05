@@ -47,27 +47,35 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 		{
 			const size_t outcomes = outcomesNode.childrenCount();
 
-			_outcomeNames.clear();
-			_outcomeBaseWeights.clear();
-			_outcomeCalculationTypes.clear();
-			_outcomeColors.clear();
-			_outcomeResolutionTypes.clear();
-			_outcomeStatsAndRatios.clear();
+			_outcomeNames.assign(outcomes, "STR_ASSIGNMENT_NO_NAME_UC");
+			_outcomeBaseWeights.assign(outcomes, 0);
+			_outcomeCalculationTypes.assign(outcomes, "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_ADDITIVE_UC");
+			_outcomeColors.assign(outcomes, 0);
+			_outcomeResolutionTypes.assign(outcomes, "");
+			_outcomeStatsAndRatios.assign(outcomes, std::map<std::string, float>());
+			_outcomeCharacters.assign(outcomes, "");
 
-			_outcomeNames.resize(outcomes);
-			_outcomeBaseWeights.resize(outcomes);
-			_outcomeCalculationTypes.resize(outcomes);
-			_outcomeColors.resize(outcomes);
-			_outcomeResolutionTypes.resize(outcomes);
-			_outcomeStatsAndRatios.resize(outcomes);
 
 			for (size_t i = 0; i < outcomes; ++i)
 			{
-				outcomesNode[i].readNode("name", _outcomeNames[i]);
-				outcomesNode[i].readNode("baseWeight", _outcomeBaseWeights[i]);
-				outcomesNode[i].readNode("calculationType", _outcomeCalculationTypes[i]);
-				outcomesNode[i].readNode("color", _outcomeColors[i]);
+				outcomesNode[i].tryRead("name", _outcomeNames[i]);
+				outcomesNode[i].tryRead("baseWeight", _outcomeBaseWeights[i]);
+				outcomesNode[i].tryRead("calculationType", _outcomeCalculationTypes[i]);
+				outcomesNode[i].tryRead("color", _outcomeColors[i]);
 				outcomesNode[i].readNode("resolutionType", _outcomeResolutionTypes[i]);
+				std::string symbols;
+				outcomesNode[i].tryRead("symbols", symbols);
+				// 160 symbols for 320 px, assuming symbols aren't smaller than 2 px.
+				if (!symbols.empty())
+				{
+					_outcomeCharacters[i].reserve(160);
+					for (std::size_t j = 0; j < 160; j+=symbols.size())
+						_outcomeCharacters[i] += symbols;
+				}
+				else
+				{
+					_outcomeCharacters[i].assign(160, '|');
+				}
 				outcomesNode[i].readNode("statsAndRatios", _outcomeStatsAndRatios[i]);
 			}
 		}

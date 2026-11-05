@@ -45,7 +45,6 @@ private:
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
-	std::vector<int> _indices, _filteredIndicesOfSoldiers, _outcomeWeights;
 	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers;
 	std::vector<const Soldier*> _selectedSoldiers;
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
@@ -57,7 +56,7 @@ private:
 	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
 	bool _lmb, _toggleTo;
 	Uint8 _activeStatColor, _inactiveStatColor;
-	std::string _bars, _calculationType;
+	std::string _calculationType;
 	WeightedOptions _resolutionsList;
 
 public:
@@ -90,10 +89,11 @@ public:
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
 	void fillContributionTable();
 	void recalculateChances();
-	void colorRelevantStatsTable(int outcomeIndex=-1) const;
+	void colorRelevantStatsTable(int outcomeIndex=-1);
 	void cbxSortByChange();
 	void lstSortByClick(Action * action);
 	void sortAndReinitSoldierList(int sortIndex);
+	void resetSoldierSelection(Action * action);
 };
 
 }

@@ -31,6 +31,7 @@ class RuleAssignment
 private:
 	std::string _name, _description;
 	int _minimumSoldiers, _maximumSoldiers;
+	std::vector<std::string> _outcomeCharacters;
 	std::vector<std::string> _outcomeNames;
 	std::vector<std::string> _outcomeResolutionTypes;
 	std::vector<int> _outcomeBaseWeights;
@@ -64,6 +65,8 @@ public:
 	const std::vector<std::string> &getOutcomeCalculationTypes() const { return _outcomeCalculationTypes; }
 	/// Gets the assignment's outcome colors.
 	const std::vector<Uint8> &getOutcomeColors() const { return _outcomeColors; }
+	/// Gets the outcome's success bar filler character.
+	const std::vector<std::string> & getOutcomeCharacters() const { return _outcomeCharacters; }
 	/// Gets the assignment's outcome used stats and their ratios.
 	const std::vector<std::map<std::string, float>> &getOutcomeStatsAndRatios() const { return _outcomeStatsAndRatios; }
 
