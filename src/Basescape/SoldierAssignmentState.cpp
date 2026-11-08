@@ -24,10 +24,11 @@
 #include "../Engine/Options.h"
 #include "../Engine/Screen.h"
 #include "../Geoscape/GeoscapeEventState.h"
+#include "../Interface/ComboBox.h"
 #include "../Interface/Text.h"
 #include "../Interface/TextButton.h"
 #include "../Interface/TextList.h"
-#include "../Interface/ComboBox.h"
+#include "../Interface/ToggleTextButton.h"
 #include "../Interface/Window.h"
 #include "../Mod/Mod.h"
 #include "../Savegame/Base.h"
@@ -35,6 +36,7 @@
 #include "../Savegame/SavedGame.h"
 #include "../Savegame/SavedBattleGame.h"
 #include "../Savegame/Soldier.h"
+#include "../Savegame/Transfer.h"
 #include "SoldierAssignmentState.h"
 #include "SoldierInfoState.h"
 
@@ -58,15 +60,16 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_btnOk = new TextButton(148, 16, 164, 176);
 	_btnSendOff = new TextButton(148, 16, 8, 176);
 	_txtCalculationType = new Text(240, 10, 8, 145);
-	_txtMinimumSoldiers = new Text(32, 16, 234, 155);
-	_txtMaximumSoldiers = new Text(48, 16, 258, 155);
+	_txtMinimumSoldiers = new Text(32, 8, 234, 155);
+	_txtMaximumSoldiers = new Text(48, 8, 258, 155);
 	_txtTitle = new Text(200, 17, 5, 9);
-	_txtName = new Text(114, 9, 148, 32);
-	_txtContribution = new Text(144, 9, 148, 32);
-	_txtDescriptionTitle = new Text(124, 9, 8, 32);
-	_txtDescription = new Text(124, 120, 8, 40);
+	_txtName = new Text(120, 9, 8, 32);
+	_txtContribution = new Text(20*_outcomeCount, 9, 148, 32);
+	_btnToggleDescription = new ToggleTextButton(12, 12, 300, 26);
+	_txtDescriptionTitle = new Text(304, 9, 8, 32);
+	_txtDescription = new Text(304, 120, 8, 40);
 	_lstRelevantStatsTable = new TextList(288, 9, 5, 155);
-	_lstSoldiers = new TextList(150, 104, 140, 40);
+	_lstSoldiers = new TextList(288, 104, 8, 40);
 	_lstOutcomeDistribution = new TextList(308, 16, 8, 165);
 	_cbxSortBy = new ComboBox(this, 120, 16, 192, 8, false);
 	_interactiveWindow = new InteractiveSurface(320, 200, 0, 0);
@@ -83,6 +86,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	add(_txtTitle, "text", "soldierAssignments");
 	add(_txtName, "text", "soldierAssignments");
 	add(_txtContribution, "text", "soldierAssignments");
+	add(_btnToggleDescription, "button", "soldierAssignments");
 	add(_txtDescriptionTitle, "text", "soldierAssignments");
 	add(_txtDescription, "text", "soldierAssignments");
 	add(_lstRelevantStatsTable, "list2", "soldierAssignments");
@@ -109,6 +113,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 
 	_txtName->setText(tr("STR_NAME_UC"));
 	_calculationType = _ruleAssignment.getOutcomeCalculationTypes()[0];
+	_maxSoldiersStr = (_maxSoldiers == std::numeric_limits<int>::max()) ? "∞" : std::to_string(_maxSoldiers);
 	for (int i=1; i<_ruleAssignment.getOutcomeCalculationTypes().size(); i++)
 	{
 		if (_calculationType!= _ruleAssignment.getOutcomeCalculationTypes()[i])
@@ -119,19 +124,24 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	}
 	_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
 	_txtMinimumSoldiers->setText(tr("STR_ASSIGNMENT_MIN_SOLDIERS_UC").arg(_minSoldiers));
-	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(0).arg(_maxSoldiers));
+	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(0).arg(_maxSoldiersStr));
 	_txtMaximumSoldiers->setAlign(ALIGN_RIGHT);
-	_txtMaximumSoldiers->onMouseClick((ActionHandler)&SoldierAssignmentState::resetSoldierSelection);
+	_txtMaximumSoldiers->onMouseRelease((ActionHandler)&SoldierAssignmentState::txtMaxSoldiersMouseRelease);
 	_txtContribution->setText(tr("STR_ASSIGNMENT_CONTRIBUTION_UC"));
-	_txtContribution->setAlign(ALIGN_RIGHT);
+	_txtContribution->setAlign(ALIGN_CENTER);
+	_btnToggleDescription->setText("?");
+	_btnToggleDescription->onMouseClick((ActionHandler)&SoldierAssignmentState::btnToggleDescriptionClick);
 	_txtDescriptionTitle->setAlign(ALIGN_CENTER);
 	_txtDescriptionTitle->setText(tr("STR_ASSIGNMENT_SUMMARY_UC"));
+	_txtDescriptionTitle->setVisible(_btnToggleDescription->getPressed());
+	_txtDescriptionTitle->setVisible(false);
 	_txtDescription->setText(tr(_ruleAssignment.getDescription()));
 	_txtDescription->setVerticalAlign(ALIGN_TOP);
 	_txtDescription->setAlign(ALIGN_CENTER);
 	_txtDescription->setWordWrap(true);
 	_txtDescription->setColor(_txtDescription->getSecondaryColor());
 	_txtDescription->setSecondaryColor(_activeStatColor);
+	_txtDescription->setVisible(false);
 	std::vector<std::string> sortOptions;
 	sortOptions.push_back(tr("STR_ORIGINAL_ORDER"));
 	for (const std::string & s : _ruleAssignment.getOutcomeNames())
@@ -185,20 +195,24 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 
 	_filteredListOfSoldiers = *filteredList;
 
+	_origSoldierOrder = *_base->getSoldiers();
+
 	if (_filteredListOfSoldiers.empty())
 	{
-		_filteredListOfSoldiers = *_base->getSoldiers();
+		_filteredListOfSoldiers = _origSoldierOrder;
 		fillContributionTable();
 	}
+	_filteredListOfSoldiers.erase(
+		std::remove_if(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(),
+					   [](Soldier* s) { return s->isWounded(); }),
+		_filteredListOfSoldiers.end());
 	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,20);
-	lstSoldierColumns[0] = 90;
+	lstSoldierColumns[0] = 140;
 	_lstSoldiers->setColumnsVector(lstSoldierColumns);
 
-	BaseSumDailyRecovery recovery = _base->getSumRecoveryPerDay();
 	unsigned int row = 0;
 	for (const auto* soldier : _filteredListOfSoldiers)
 	{
-		std::string craftString = soldier->getCraftString(_game->getLanguage(), recovery);
 		std::vector<std::string> lstSoldierContent(1+_outcomeCount, "");
 		lstSoldierContent[0] = soldier->getName(true);
 		for (int i=0; i<_outcomeCount; i++)
@@ -206,6 +220,7 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 		_lstSoldiers->addRowVectorString(lstSoldierContent);
 		for (int i=0; i<_outcomeCount; i++)
 			_lstSoldiers->setCellColor(row, i+1, _ruleAssignment.getOutcomeColors()[i]);
+
 		_affectedRows.insert(std::pair(row,false));
 		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), soldier);
 		if (soldier_iter != _selectedSoldiers.end())
@@ -249,10 +264,39 @@ void SoldierAssignmentState::btnOkClick()
 /**
 * Shows the Statistics screen.
 */
-void SoldierAssignmentState::btnSendOffClick() const
+void SoldierAssignmentState::btnSendOffClick()
 {
 	if (_selectedSoldiers.size()>=_minSoldiers){
-		const RuleEvent *resolution_event = _game->getMod()->getEvent(_resolutionsList.choose(), true);
+		int outComeIndex = std::stoi(_resolutionsList.choose());
+		int transferTime = _ruleAssignment.getOutcomeTransferTimes()[outComeIndex];
+		int recoveryTime = _ruleAssignment.getOutcomeRecoveryTimes()[outComeIndex];
+		for (auto sol : _selectedSoldiers)
+		{
+			if (recoveryTime > 0)
+				sol->setWoundRecovery(recoveryTime);
+
+			if (transferTime > 0)
+			{
+				// handle training (transfer rules)
+				sol->setPsiTraining(false);
+				if (sol->isInTraining())
+					sol->setReturnToTrainingWhenHealed(true);
+				sol->setTraining(false);
+
+				auto transfer = new Transfer(transferTime);
+				transfer->setSoldier(sol);
+				_base->getTransfers()->push_back(transfer);
+				auto it = find(_base->getSoldiers()->begin(), _base->getSoldiers()->end(), sol);
+				auto it2 = find(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(), sol);
+
+				if (it != _base->getSoldiers()->end())
+					_base->getSoldiers()->erase(it);
+				if (it2 != _filteredListOfSoldiers.end())
+					_filteredListOfSoldiers.erase(it2);
+			}
+		}
+		resetSoldierSelection();
+		const RuleEvent *resolution_event = _game->getMod()->getEvent(_ruleAssignment.getResolutionTypes()[outComeIndex], true);
 		if (resolution_event)
 			_game->pushState(new GeoscapeEventState(*resolution_event));
 	}
@@ -283,7 +327,7 @@ void SoldierAssignmentState::toggleSoldier(int row)
 				recalculateChances();
 			}
 		}
-		_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiers));
+		_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
 	}
 }
 
@@ -296,12 +340,15 @@ void SoldierAssignmentState::lstSoldiersMousePress(Action *action)
 {
 	if (_game->isLeftClick(action, true))
 	{
-		int row = _lstSoldiers->getSelectedRow();
-		Soldier *_soldier = _filteredListOfSoldiers[row];
-		auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), _soldier);
-		_toggleTo = soldier_iter == _selectedSoldiers.end();
-		toggleSoldier(row);
-		_lmb=true;
+		if (!_game->isCtrlPressed(true))
+		{
+			int row = _lstSoldiers->getSelectedRow();
+			Soldier *_soldier = _filteredListOfSoldiers[row];
+			auto soldier_iter = std::find(_selectedSoldiers.begin(), _selectedSoldiers.end(), _soldier);
+			_toggleTo = soldier_iter == _selectedSoldiers.end();
+			toggleSoldier(row);
+			_lmb=true;
+		}
 	}
 }
 
@@ -314,17 +361,64 @@ void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 {
 	if (_game->isLeftClick(action, true))
 	{
-		for (auto& [key, value] : _affectedRows) value = false;
-		_lmb=false;
+		if (_game->isCtrlPressed(true) && _lstSoldiers->isMouseCursorOverMe(this))
+		{
+			txtMaxSoldiersMouseRelease(action);
+		}
+		else
+		{
+			for (auto& [key, value] : _affectedRows) value = false;
+			_lmb=false;
+		}
 	}
 	else if (_game->isMiddleClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
 	{
-		_game->pushState(new SoldierInfoState(_base, _lstSoldiers->getSelectedRow(), false));
+		_game->pushState(new SoldierInfoState(_base, origSoldierId(_lstSoldiers->getSelectedRow()), false));
 	}
 	else if (_game->isRightClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
 	{
-		enterInventory();
+		if (_game->isCtrlPressed(true))
+			txtMaxSoldiersMouseRelease(action);
+		else
+			enterInventory(origSoldierId(_lstSoldiers->getSelectedRow()));
 	}
+}
+
+void SoldierAssignmentState::txtMaxSoldiersMouseRelease(Action *action)
+{
+	size_t ceil=0;
+	if (_game->isLeftClick(action, true))
+		if (_minSoldiers==0)
+			ceil = _maxSoldiers;
+		else
+			ceil = _minSoldiers;
+	else if (_game->isRightClick(action, true))
+		ceil = _maxSoldiers;
+	if (_selectedSoldiers.empty())
+	{
+		for (int i=0; i<ceil; i++)
+			if (_filteredListOfSoldiers.size() > i)
+				_selectedSoldiers.push_back(_filteredListOfSoldiers[i]);
+			else
+				break;
+		_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
+		initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
+		recalculateChances();
+	}
+	else
+		resetSoldierSelection();
+}
+
+/**
+ * Toggles showing description or the soldiers table.
+ */
+void SoldierAssignmentState::btnToggleDescriptionClick()
+{
+	_txtName->setVisible(!_btnToggleDescription->getPressed());
+	_txtContribution->setVisible(!_btnToggleDescription->getPressed());
+	_lstSoldiers->setVisible(!_btnToggleDescription->getPressed());
+	_txtDescription->setVisible(_btnToggleDescription->getPressed());
+	_txtDescriptionTitle->setVisible(_btnToggleDescription->getPressed());
 }
 
 /**
@@ -342,7 +436,7 @@ void SoldierAssignmentState::lstSoldiersMultiselect()
 * Copypasted inventory screen from SoldiersState.
 */
 
-void SoldierAssignmentState::enterInventory() const
+void SoldierAssignmentState::enterInventory(size_t origId)
 {
 		// Copypasted from SoldiersState
 		if (_base->getAvailableSoldiers(true, true) > 0)
@@ -360,10 +454,9 @@ void SoldierAssignmentState::enterInventory() const
 			// pre-select the soldier under the mouse cursor (if possible)
 			if (_availableOptions.empty())
 			{
-				size_t idx = _lstSoldiers->getSelectedRow();
-				if (idx < _base->getSoldiers()->size())
+				if (origId < _base->getSoldiers()->size())
 				{
-					int soldierId = _base->getSoldiers()->at(idx)->getId();
+					int soldierId = _base->getSoldiers()->at(origId)->getId();
 					for (auto* unit : *bgame->getUnits())
 					{
 						if (unit->getId() == soldierId)
@@ -384,7 +477,7 @@ int SoldierAssignmentState::countContribution(const Soldier *soldier, const size
 {
 	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios()[outcome];
 	float contribution = 0;
-	if (ratios->find("time units")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->tu) * ratios->at("timeUnits"); }
+	if (ratios->find("timeUnits")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->tu) * ratios->at("timeUnits"); }
 	if (ratios->find("stamina")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->stamina) * ratios->at("stamina"); }
 	if (ratios->find("health")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->health) * ratios->at("health"); }
 	if (ratios->find("bravery")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->bravery) * ratios->at("bravery"); }
@@ -393,8 +486,8 @@ int SoldierAssignmentState::countContribution(const Soldier *soldier, const size
 	if (ratios->find("throwing")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->throwing) * ratios->at("throwing"); }
 	if (ratios->find("melee")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->melee) * ratios->at("melee"); }
 	if (ratios->find("strength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->strength) * ratios->at("strength"); }
-	if (ratios->find("psi strength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiStrength) * ratios->at("psi strength"); }
-	if (ratios->find("psi skill")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiSkill) * ratios->at("psi skill"); }
+	if (ratios->find("psiStrength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiStrength) * ratios->at("psiStrength"); }
+	if (ratios->find("psiSkill")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiSkill) * ratios->at("psiSkill"); }
 	if (ratios->find("mana")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->mana) * ratios->at("mana"); }
 	return floor(contribution);
 }
@@ -438,13 +531,13 @@ void SoldierAssignmentState::recalculateChances()
 
 		currentWeight += _ruleAssignment.getOutcomeBaseWeights()[i];
 		currentWeight = std::max(0, currentWeight);
-		_resolutionsList.set(_ruleAssignment.getResolutionTypes()[i],currentWeight);
+		_resolutionsList.set(std::to_string(i),currentWeight);
 		totalWeight+=currentWeight;
 		weights[i]=currentWeight;
 	}
 
 	std::vector<size_t> widths(_outcomeCount,0);;
-	Log(LOG_DEBUG) << "totalWeight: " << totalWeight;
+	// Log(LOG_DEBUG) << "totalWeight: " << totalWeight;
 	for (int i=0; i<_outcomeCount; i++)
 	{
 		float ratio = (float)weights[i]/(float)totalWeight;
@@ -476,7 +569,7 @@ void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 	{
 		const std::map<std::string, float>* stats = &_ruleAssignment.getOutcomeStatsAndRatios()[i];
 		const Uint8 color=_ruleAssignment.getOutcomeColors()[i];
-		if (stats->find("time units")!=stats->end())
+		if (stats->find("timeUnits")!=stats->end())
 			statColoring[0].push_back(color);
 		if (stats->find("stamina")!=stats->end())
 			statColoring[1].push_back(color);
@@ -494,9 +587,9 @@ void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 			statColoring[7].push_back(color);
 		if (stats->find("strength")!=stats->end())
 			statColoring[8].push_back(color);
-		if (stats->find("psi strength")!=stats->end())
+		if (stats->find("psiStrength")!=stats->end())
 			statColoring[9].push_back(color);
-		if (stats->find("psi skill")!=stats->end())
+		if (stats->find("psiSkill")!=stats->end())
 			statColoring[10].push_back(color);
 		if (stats->find("mana")!=stats->end())
 			statColoring[11].push_back(color);
@@ -584,12 +677,21 @@ void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
 	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 }
 
-void SoldierAssignmentState::resetSoldierSelection(Action * action)
+void SoldierAssignmentState::resetSoldierSelection()
 {
 	_selectedSoldiers.clear();
-	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiers));
+	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
 	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 	recalculateChances();
 }
 
+size_t SoldierAssignmentState::origSoldierId(size_t lstSelectedRow)
+{
+	if (lstSelectedRow!=4294967295){
+		Soldier * soldier = _filteredListOfSoldiers[lstSelectedRow];
+		auto soldier_iter = std::find(_origSoldierOrder.begin(), _origSoldierOrder.end(), soldier);
+		return soldier_iter-_origSoldierOrder.begin();
+	}
+	return 0;
+}
 }

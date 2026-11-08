@@ -25,6 +25,7 @@ namespace OpenXcom
 {
 
 class TextButton;
+class ToggleTextButton;
 class Window;
 class Text;
 class TextEdit;
@@ -42,11 +43,11 @@ private:
 	Window *_window;
 	InteractiveSurface *_interactiveWindow;
 	Text *_txtTitle, *_txtName, *_txtContribution, *_txtDescriptionTitle, *_txtDescription, *_txtMaximumSoldiers, *_txtMinimumSoldiers, *_txtCalculationType;
+	ToggleTextButton *_btnToggleDescription;
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
-	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers;
-	std::vector<const Soldier*> _selectedSoldiers;
+	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers, _selectedSoldiers;
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
 	std::map<int, bool> _affectedRows;
 	std::vector<SortFunctor *> _sortFunctors;
@@ -56,7 +57,7 @@ private:
 	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
 	bool _lmb, _toggleTo;
 	Uint8 _activeStatColor, _inactiveStatColor;
-	std::string _calculationType;
+	std::string _calculationType, _maxSoldiersStr;
 	WeightedOptions _resolutionsList;
 
 public:
@@ -73,17 +74,21 @@ public:
 	/// Handler for clicking the OK button.
 	void btnOkClick();
 	/// Handler for clicking the Send Off button.
-	void btnSendOffClick() const;
+	void btnSendOffClick();
 	/// Helper for including/excluding a soldier from the assignment, used in multiple mouse events.
 	void toggleSoldier(int row);
 	/// Handler for pressing a mouse button over the Soldiers list.
 	void lstSoldiersMousePress(Action *action);
 	/// Hacky handler for releasing a mouse button over the hidden interactiveWindow surface.
 	void lstSoldiersMouseRelease(Action *action);
+	/// Handler for autofilling or clearing the soldier selection through max soldiers txt.
+	void txtMaxSoldiersMouseRelease(Action *action);
+	/// Handler for toggling assignment screen to display either description or the soldier table.
+	void btnToggleDescriptionClick();
 	/// Handler for moving a clicked mouse button over soldier entries.
 	void lstSoldiersMultiselect();
 	/// Helper for enering the inventory screen. Copypasted from SoldierState.
-	void enterInventory() const;
+	void enterInventory(size_t origId);
 	/// Helper for calculating a soldier's contribution to assignment success.
 	int countContribution(const Soldier* soldier, size_t outcome) const;
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
@@ -93,7 +98,8 @@ public:
 	void cbxSortByChange();
 	void lstSortByClick(Action * action);
 	void sortAndReinitSoldierList(int sortIndex);
-	void resetSoldierSelection(Action * action);
+	void resetSoldierSelection();
+	size_t origSoldierId(size_t lstSelectedRow);
 };
 
 }

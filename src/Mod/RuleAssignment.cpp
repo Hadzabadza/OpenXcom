@@ -18,12 +18,13 @@
  */
 #include "RuleAssignment.h"
 #include "Mod.h"
+#include <limits>
 
 namespace OpenXcom
 {
 
 RuleAssignment::RuleAssignment(const std::string &name) :
-	_name(name)
+_name(name), _minimumSoldiers(0), _maximumSoldiers(std::numeric_limits<int>::max())
 {
 }
 
@@ -54,6 +55,8 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 			_outcomeResolutionTypes.assign(outcomes, "");
 			_outcomeStatsAndRatios.assign(outcomes, std::map<std::string, float>());
 			_outcomeCharacters.assign(outcomes, "");
+			_outcomeTransferTimes.assign(outcomes, 0);
+			_outcomeRecoveryTimes.assign(outcomes, 0);
 
 
 			for (size_t i = 0; i < outcomes; ++i)
@@ -76,6 +79,8 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 				{
 					_outcomeCharacters[i].assign(160, '|');
 				}
+				outcomesNode[i].tryRead("transferTime", _outcomeTransferTimes[i]);
+				outcomesNode[i].tryRead("recoveryTime", _outcomeRecoveryTimes[i]);
 				outcomesNode[i].readNode("statsAndRatios", _outcomeStatsAndRatios[i]);
 			}
 		}

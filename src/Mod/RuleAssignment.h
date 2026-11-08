@@ -34,7 +34,7 @@ private:
 	std::vector<std::string> _outcomeCharacters;
 	std::vector<std::string> _outcomeNames;
 	std::vector<std::string> _outcomeResolutionTypes;
-	std::vector<int> _outcomeBaseWeights;
+	std::vector<int> _outcomeBaseWeights, _outcomeTransferTimes, _outcomeRecoveryTimes;
 	std::vector<std::string> _outcomeCalculationTypes;
 	std::vector<Uint8> _outcomeColors;
 	std::vector<std::map<std::string, float>> _outcomeStatsAndRatios;
@@ -61,6 +61,10 @@ public:
 	const std::vector<std::string> &getResolutionTypes() const { return _outcomeResolutionTypes; }
 	/// Gets the assignment's outcome base weights.
 	const std::vector<int> &getOutcomeBaseWeights() const { return _outcomeBaseWeights; }
+	/// Gets the assignment's outcome transfer times.
+	const std::vector<int> &getOutcomeTransferTimes() const { return _outcomeTransferTimes; }
+	/// Gets the assignment's outcome recovery times.
+	const std::vector<int> &getOutcomeRecoveryTimes() const { return _outcomeRecoveryTimes; }
 	/// Gets the assignment's outcome calculation types.
 	const std::vector<std::string> &getOutcomeCalculationTypes() const { return _outcomeCalculationTypes; }
 	/// Gets the assignment's outcome colors.
