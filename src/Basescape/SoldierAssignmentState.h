@@ -47,7 +47,7 @@ private:
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
-	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers, _selectedSoldiers;
+	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers, _selectedSoldiers, _noWounded;
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
 	std::map<int, bool> _affectedRows;
 	std::vector<SortFunctor *> _sortFunctors;
@@ -55,9 +55,9 @@ private:
 	size_t _mainOffset;
 	RuleAssignment& _ruleAssignment;
 	size_t _outcomeCount, _minSoldiers, _maxSoldiers;
-	bool _lmb, _toggleTo;
+	bool _lmb, _toggleTo, _psiUnlocked;
 	Uint8 _activeStatColor, _inactiveStatColor;
-	std::string _calculationType, _maxSoldiersStr;
+	std::string _calculationType, _bonusesType, _maxSoldiersStr;
 	WeightedOptions _resolutionsList;
 
 public:
@@ -90,14 +90,14 @@ public:
 	/// Helper for enering the inventory screen. Copypasted from SoldierState.
 	void enterInventory(size_t origId) const;
 	/// Helper for calculating a soldier's contribution to assignment success.
-	int countContribution(const Soldier* soldier, size_t outcome) const;
+	int countContribution(const Soldier* soldier, Uint8 outcome) const;
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
 	void fillContributionTable();
 	void recalculateChances();
 	void colorRelevantStatsTable(int outcomeIndex=-1);
 	void cbxSortByChange();
 	void lstSortByClick(Action * action);
-	void sortAndReinitSoldierList(int sortIndex);
+	void sortAndReinitSoldierList(Uint8 sortIndex, bool reinit=true);
 	void resetSoldierSelection();
 	unsigned int origSoldierId(unsigned int lstSelectedRow);
 	static void filterWounded(std::vector<Soldier *> * toFilter);

@@ -51,6 +51,7 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 			_outcomeNames.assign(outcomes, "STR_ASSIGNMENT_NO_NAME_UC");
 			_outcomeBaseWeights.assign(outcomes, 0);
 			_outcomeCalculationTypes.assign(outcomes, "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_ADDITIVE_UC");
+			_outcomeStatBonuses.assign(outcomes, "STR_ASSIGNMENT_OUTCOME_STAT_ALL_BONUSES_UC");
 			_outcomeColors.assign(outcomes, 0);
 			_outcomeResolutionTypes.assign(outcomes, "");
 			_outcomeStatsAndRatios.assign(outcomes, std::map<std::string, float>());
@@ -64,6 +65,7 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 				outcomesNode[i].tryRead("name", _outcomeNames[i]);
 				outcomesNode[i].tryRead("baseWeight", _outcomeBaseWeights[i]);
 				outcomesNode[i].tryRead("calculationType", _outcomeCalculationTypes[i]);
+				outcomesNode[i].tryRead("bonusType", _outcomeStatBonuses[i]);
 				outcomesNode[i].tryRead("color", _outcomeColors[i]);
 				outcomesNode[i].readNode("resolutionType", _outcomeResolutionTypes[i]);
 				std::string symbols;
@@ -87,4 +89,3 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 	}
 }
 }
-

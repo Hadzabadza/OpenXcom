@@ -55,6 +55,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false), _toggleTo(false),
 	_activeStatColor(0), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size())
 {
+	_psiUnlocked = _game->getSavedGame()->isResearched(_game->getMod()->getPsiRequirements());
 	// Create objects
 	_window = new Window(this, 320, 200, 0, 0, POPUP_BOTH);
 	_btnOk = new TextButton(148, 16, 164, 176);
@@ -64,7 +65,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtMaximumSoldiers = new Text(48, 8, 258, 155);
 	_txtTitle = new Text(200, 17, 5, 9);
 	_txtName = new Text(120, 9, 8, 32);
-	_txtContribution = new Text(18*_outcomeCount, 9, 144, 32);
+	_txtContribution = new Text(64, 9, 116+9*_outcomeCount, 32);
 	_btnToggleDescription = new ToggleTextButton(12, 12, 300, 26);
 	_txtDescriptionTitle = new Text(304, 9, 8, 32);
 	_txtDescription = new Text(304, 120, 8, 40);
@@ -113,22 +114,24 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 
 	_txtName->setText(tr("STR_NAME_UC"));
 	_calculationType = _ruleAssignment.getOutcomeCalculationTypes()[0];
+	_bonusesType = _ruleAssignment.getOutcomeStatBonuses()[0];
 	_maxSoldiersStr = _maxSoldiers == std::numeric_limits<int>::max() ? "∞" : std::to_string(_maxSoldiers);
 	for (int i=1; i<_ruleAssignment.getOutcomeCalculationTypes().size(); i++)
 	{
-		if (_calculationType!= _ruleAssignment.getOutcomeCalculationTypes()[i])
+		if (_calculationType!= _ruleAssignment.getOutcomeCalculationTypes()[i] || _bonusesType!=_ruleAssignment.getOutcomeStatBonuses()[i])
 		{
 			_calculationType = "STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_NOTICE";
+			_bonusesType = "";
 			break;
 		}
 	}
-	_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
+	_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)).arg(tr(_bonusesType)));
 	_txtMinimumSoldiers->setText(tr("STR_ASSIGNMENT_MIN_SOLDIERS_UC").arg(_minSoldiers));
 	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(0).arg(_maxSoldiersStr));
 	_txtMaximumSoldiers->setAlign(ALIGN_RIGHT);
 	_txtMaximumSoldiers->onMouseRelease((ActionHandler)&SoldierAssignmentState::txtMaxSoldiersMouseRelease);
 	_txtContribution->setText(tr("STR_ASSIGNMENT_CONTRIBUTION_UC"));
-	_txtContribution->setAlign(ALIGN_CENTER);
+	// _txtContribution->setAlign(ALIGN_CENTER);
 	_btnToggleDescription->setText("?");
 	_btnToggleDescription->onMouseClick((ActionHandler)&SoldierAssignmentState::btnToggleDescriptionClick);
 	_txtDescriptionTitle->setAlign(ALIGN_CENTER);
@@ -193,26 +196,34 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 {
 	_lstSoldiers->clearList();
 
-	// Needs a check after other state screen in case player modifies the soldiers list.
+	// Check after other states if players modified the soldiers list.
 	std::vector<Soldier *> newList = *_base->getSoldiers();
-	filterWounded(&newList);
-	if (_origSoldierOrder.size()!= newList.size())
+	// Happens when soldiers get transferred/sacked.
+	if (newList!=_origSoldierOrder)
 	{
-		_filteredListOfSoldiers.clear();
-		resetSoldierSelection();
-	}
-	else
+		_origSoldierOrder=newList;
+		sortAndReinitSoldierList(_cbxSortBy->getSelected(),false);
+	} else
 	{
-		_filteredListOfSoldiers = *filteredList;
+		filterWounded(&newList);
+		// Happens when soldiers get wounded by transformations.
+		if (_noWounded.size()!= newList.size())
+		{
+			_filteredListOfSoldiers.clear();
+			resetSoldierSelection();
+			_noWounded=newList;
+			sortAndReinitSoldierList(_cbxSortBy->getSelected(),false);
+		}
+		else
+		{
+			_filteredListOfSoldiers = *filteredList;
+		}
 	}
-
-	_origSoldierOrder = newList;
 
 	if (_filteredListOfSoldiers.empty())
-	{
 		_filteredListOfSoldiers = _origSoldierOrder;
-		fillContributionTable();
-	}
+	fillContributionTable();
+	filterWounded(&_filteredListOfSoldiers);
 	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,18);
 	lstSoldierColumns[0] = 136;
 	_lstSoldiers->setColumnsVector(lstSoldierColumns);
@@ -242,7 +253,7 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 void SoldierAssignmentState::initStatList()
 {
 	_lstRelevantStatsTable->clearList();
-	std::vector<std::string> stat_shorts(11, "");
+	std::vector<std::string> stat_shorts(9, "");
 	stat_shorts[0] = tr("STR_TIME_UNITS_ABBREVIATION");
 	stat_shorts[1] = tr("STR_STAMINA_ABBREVIATION");
 	stat_shorts[2] = tr("STR_HEALTH_ABBREVIATION");
@@ -252,8 +263,11 @@ void SoldierAssignmentState::initStatList()
 	stat_shorts[6] = tr("STR_THROWING_ACCURACY_ABBREVIATION");
 	stat_shorts[7] = tr("STR_MELEE_ACCURACY_ABBREVIATION");
 	stat_shorts[8] = tr("STR_STRENGTH_ABBREVIATION");
-	stat_shorts[9] = tr("STR_PSIONIC_STRENGTH_ABBREVIATION");
-	stat_shorts[10] = tr("STR_PSIONIC_SKILL_ABBREVIATION");
+	if (_psiUnlocked)
+	{
+		stat_shorts.push_back(tr("STR_PSIONIC_STRENGTH_ABBREVIATION"));
+		stat_shorts.push_back(tr("STR_PSIONIC_SKILL_ABBREVIATION"));
+	}
 	if (_game->getMod()->isManaFeatureEnabled())
 		stat_shorts.push_back(tr("STR_MANA_ABBREVIATION"));
 	_lstRelevantStatsTable->addRowVectorString(stat_shorts);
@@ -482,27 +496,35 @@ void SoldierAssignmentState::enterInventory(size_t origId) const
 		}
 }
 
-int SoldierAssignmentState::countContribution(const Soldier *soldier, const size_t outcome) const
+int SoldierAssignmentState::countContribution(const Soldier *soldier, const Uint8 outcome) const
 {
 	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios()[outcome];
+	std::string bonusType = _ruleAssignment.getOutcomeStatBonuses()[outcome];
 	float contribution = 0;
-	if (ratios->find("timeUnits")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->tu) * ratios->at("timeUnits"); }
-	if (ratios->find("stamina")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->stamina) * ratios->at("stamina"); }
-	if (ratios->find("health")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->health) * ratios->at("health"); }
-	if (ratios->find("bravery")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->bravery) * ratios->at("bravery"); }
-	if (ratios->find("reactions")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->reactions) * ratios->at("reactions"); }
-	if (ratios->find("firing")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->firing) * ratios->at("firing"); }
-	if (ratios->find("throwing")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->throwing) * ratios->at("throwing"); }
-	if (ratios->find("melee")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->melee) * ratios->at("melee"); }
-	if (ratios->find("strength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->strength) * ratios->at("strength"); }
-	if (ratios->find("psiStrength")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiStrength) * ratios->at("psiStrength"); }
-	if (ratios->find("psiSkill")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->psiSkill) * ratios->at("psiSkill"); }
-	if (ratios->find("mana")!=ratios->end()) { contribution+= static_cast<float>(soldier->getCurrentStats()->mana) * ratios->at("mana"); }
+	UnitStats stats = *soldier->getCurrentStats();;
+	if (bonusType=="STR_ASSIGNMENT_OUTCOME_STAT_ALL_BONUSES_UC")
+		stats = *soldier->getStatsWithAllBonuses();
+	else if (bonusType=="STR_ASSIGNMENT_OUTCOME_STAT_NO_ARMOR_BONUSES_UC")
+		stats = *soldier->getStatsWithSoldierBonusesOnly();
+
+	if (ratios->find("timeUnits")!=ratios->end()) { contribution+= static_cast<float>(stats.tu) * ratios->at("timeUnits"); }
+	if (ratios->find("stamina")!=ratios->end()) { contribution+= static_cast<float>(stats.stamina) * ratios->at("stamina"); }
+	if (ratios->find("health")!=ratios->end()) { contribution+= static_cast<float>(stats.health) * ratios->at("health"); }
+	if (ratios->find("bravery")!=ratios->end()) { contribution+= static_cast<float>(stats.bravery) * ratios->at("bravery"); }
+	if (ratios->find("reactions")!=ratios->end()) { contribution+= static_cast<float>(stats.reactions) * ratios->at("reactions"); }
+	if (ratios->find("firing")!=ratios->end()) { contribution+= static_cast<float>(stats.firing) * ratios->at("firing"); }
+	if (ratios->find("throwing")!=ratios->end()) { contribution+= static_cast<float>(stats.throwing) * ratios->at("throwing"); }
+	if (ratios->find("melee")!=ratios->end()) { contribution+= static_cast<float>(stats.melee) * ratios->at("melee"); }
+	if (ratios->find("strength")!=ratios->end()) { contribution+= static_cast<float>(stats.strength) * ratios->at("strength"); }
+	if (ratios->find("psiStrength")!=ratios->end()) { contribution+= static_cast<float>(stats.psiStrength) * ratios->at("psiStrength"); }
+	if (ratios->find("psiSkill")!=ratios->end()) { contribution+= static_cast<float>(stats.psiSkill) * ratios->at("psiSkill"); }
+	if (ratios->find("mana")!=ratios->end()) { contribution+= static_cast<float>(stats.mana) * ratios->at("mana"); }
 	return floor(contribution);
 }
 
 void SoldierAssignmentState::fillContributionTable()
 {
+	_contributionMap.clear();
 	for (Soldier * sol : _filteredListOfSoldiers)
 	{
 		std::vector soldierContribution(_outcomeCount, 0);
@@ -563,7 +585,7 @@ void SoldierAssignmentState::recalculateChances()
 void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 {
 	std::vector<Uint8> outcomeIndices;
-	std::vector statColoring(11+_game->getMod()->isManaFeatureEnabled(), std::vector<Uint8>(0));
+	std::vector statColoring(9+_game->getMod()->isManaFeatureEnabled()+2*_psiUnlocked, std::vector<Uint8>(0));
 
 	if (outcomeIndex==-1)
 	{
@@ -595,12 +617,12 @@ void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 			statColoring[7].push_back(color);
 		if (stats->find("strength")!=stats->end())
 			statColoring[8].push_back(color);
-		if (stats->find("psiStrength")!=stats->end())
+		if (stats->find("psiStrength")!=stats->end()&&_psiUnlocked)
 			statColoring[9].push_back(color);
-		if (stats->find("psiSkill")!=stats->end())
+		if (stats->find("psiSkill")!=stats->end()&&_psiUnlocked)
 			statColoring[10].push_back(color);
 		if (stats->find("mana")!=stats->end())
-			statColoring[11].push_back(color);
+			statColoring[9+2*_psiUnlocked].push_back(color);
 	}
 	_lstRelevantStatsTable->setColor(_inactiveStatColor);
 	for (int i=0; i<statColoring.size(); i++)
@@ -647,21 +669,21 @@ void SoldierAssignmentState::lstSortByClick(Action * action)
 	}
 }
 
-void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
+void SoldierAssignmentState::sortAndReinitSoldierList(Uint8 sortIndex, bool reinit)
 {
 	std::vector<Soldier *> checker = _filteredListOfSoldiers;
 	if (sortIndex==0)
 	{
 		_cbxSortBy->setSelected(0);
 		_filteredListOfSoldiers=_origSoldierOrder;
-		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)));
+		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)).arg(tr(_bonusesType)));
 		colorRelevantStatsTable(-1);
 	}
 	else
 	{
 		_cbxSortBy->setSelected(sortIndex);
 		colorRelevantStatsTable(sortIndex-1);
-		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_ruleAssignment.getOutcomeCalculationTypes()[sortIndex-1])));
+		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_ruleAssignment.getOutcomeCalculationTypes()[sortIndex-1])).arg(tr(_ruleAssignment.getOutcomeStatBonuses()[sortIndex-1])));
 		if (_game->isShiftPressed())
 		{
 			std::stable_sort(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(),
@@ -682,7 +704,8 @@ void SoldierAssignmentState::sortAndReinitSoldierList(int sortIndex)
 			return;
 		}
 	}
-	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
+	if (reinit)
+		initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 }
 
 void SoldierAssignmentState::resetSoldierSelection()

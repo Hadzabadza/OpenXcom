@@ -35,7 +35,7 @@ private:
 	std::vector<std::string> _outcomeNames;
 	std::vector<std::string> _outcomeResolutionTypes;
 	std::vector<int> _outcomeBaseWeights, _outcomeTransferTimes, _outcomeRecoveryTimes;
-	std::vector<std::string> _outcomeCalculationTypes;
+	std::vector<std::string> _outcomeCalculationTypes, _outcomeStatBonuses;
 	std::vector<Uint8> _outcomeColors;
 	std::vector<std::map<std::string, float>> _outcomeStatsAndRatios;
 
@@ -65,8 +65,10 @@ public:
 	const std::vector<int> &getOutcomeTransferTimes() const { return _outcomeTransferTimes; }
 	/// Gets the assignment's outcome recovery times.
 	const std::vector<int> &getOutcomeRecoveryTimes() const { return _outcomeRecoveryTimes; }
-	/// Gets the assignment's outcome calculation types.
+	/// Gets the assignment's outcome calculation types (additive, average, lowest).
 	const std::vector<std::string> &getOutcomeCalculationTypes() const { return _outcomeCalculationTypes; }
+	/// Gets the assignment's outcome stat bonuses type (all, no armor, base).
+	const std::vector<std::string> &getOutcomeStatBonuses() const { return _outcomeStatBonuses; }
 	/// Gets the assignment's outcome colors.
 	const std::vector<Uint8> &getOutcomeColors() const { return _outcomeColors; }
 	/// Gets the outcome's success bar filler character.
