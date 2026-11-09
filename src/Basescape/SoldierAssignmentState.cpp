@@ -64,7 +64,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 	_txtMaximumSoldiers = new Text(48, 8, 258, 155);
 	_txtTitle = new Text(200, 17, 5, 9);
 	_txtName = new Text(120, 9, 8, 32);
-	_txtContribution = new Text(20*_outcomeCount, 9, 148, 32);
+	_txtContribution = new Text(18*_outcomeCount, 9, 144, 32);
 	_btnToggleDescription = new ToggleTextButton(12, 12, 300, 26);
 	_txtDescriptionTitle = new Text(304, 9, 8, 32);
 	_txtDescription = new Text(304, 120, 8, 40);
@@ -113,7 +113,7 @@ SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assig
 
 	_txtName->setText(tr("STR_NAME_UC"));
 	_calculationType = _ruleAssignment.getOutcomeCalculationTypes()[0];
-	_maxSoldiersStr = (_maxSoldiers == std::numeric_limits<int>::max()) ? "∞" : std::to_string(_maxSoldiers);
+	_maxSoldiersStr = _maxSoldiers == std::numeric_limits<int>::max() ? "∞" : std::to_string(_maxSoldiers);
 	for (int i=1; i<_ruleAssignment.getOutcomeCalculationTypes().size(); i++)
 	{
 		if (_calculationType!= _ruleAssignment.getOutcomeCalculationTypes()[i])
@@ -193,21 +193,28 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 {
 	_lstSoldiers->clearList();
 
-	_filteredListOfSoldiers = *filteredList;
+	// Needs a check after other state screen in case player modifies the soldiers list.
+	std::vector<Soldier *> newList = *_base->getSoldiers();
+	filterWounded(&newList);
+	if (_origSoldierOrder.size()!= newList.size())
+	{
+		_filteredListOfSoldiers.clear();
+		resetSoldierSelection();
+	}
+	else
+	{
+		_filteredListOfSoldiers = *filteredList;
+	}
 
-	_origSoldierOrder = *_base->getSoldiers();
+	_origSoldierOrder = newList;
 
 	if (_filteredListOfSoldiers.empty())
 	{
 		_filteredListOfSoldiers = _origSoldierOrder;
 		fillContributionTable();
 	}
-	_filteredListOfSoldiers.erase(
-		std::remove_if(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(),
-					   [](Soldier* s) { return s->isWounded(); }),
-		_filteredListOfSoldiers.end());
-	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,20);
-	lstSoldierColumns[0] = 140;
+	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,18);
+	lstSoldierColumns[0] = 136;
 	_lstSoldiers->setColumnsVector(lstSoldierColumns);
 
 	unsigned int row = 0;
@@ -296,6 +303,7 @@ void SoldierAssignmentState::btnSendOffClick()
 			}
 		}
 		resetSoldierSelection();
+		initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 		const RuleEvent *resolution_event = _game->getMod()->getEvent(_ruleAssignment.getResolutionTypes()[outComeIndex], true);
 		if (resolution_event)
 			_game->pushState(new GeoscapeEventState(*resolution_event));
@@ -359,6 +367,7 @@ void SoldierAssignmentState::lstSoldiersMousePress(Action *action)
 
 void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 {
+	unsigned int origId = origSoldierId(_lstSoldiers->getSelectedRow());
 	if (_game->isLeftClick(action, true))
 	{
 		if (_game->isCtrlPressed(true) && _lstSoldiers->isMouseCursorOverMe(this))
@@ -371,16 +380,16 @@ void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 			_lmb=false;
 		}
 	}
-	else if (_game->isMiddleClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
+	else if (_game->isMiddleClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this) && origId!=4294967295)
 	{
-		_game->pushState(new SoldierInfoState(_base, origSoldierId(_lstSoldiers->getSelectedRow()), false));
+		_game->pushState(new SoldierInfoState(_base, origId, false));
 	}
 	else if (_game->isRightClick(action, true) && _lstSoldiers->isMouseCursorOverMe(this))
 	{
 		if (_game->isCtrlPressed(true))
 			txtMaxSoldiersMouseRelease(action);
 		else
-			enterInventory(origSoldierId(_lstSoldiers->getSelectedRow()));
+			enterInventory(origId);
 	}
 }
 
@@ -402,11 +411,11 @@ void SoldierAssignmentState::txtMaxSoldiersMouseRelease(Action *action)
 			else
 				break;
 		_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
-		initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 		recalculateChances();
 	}
 	else
 		resetSoldierSelection();
+	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 }
 
 /**
@@ -436,10 +445,10 @@ void SoldierAssignmentState::lstSoldiersMultiselect()
 * Copypasted inventory screen from SoldiersState.
 */
 
-void SoldierAssignmentState::enterInventory(size_t origId)
+void SoldierAssignmentState::enterInventory(size_t origId) const
 {
 		// Copypasted from SoldiersState
-		if (_base->getAvailableSoldiers(true, true) > 0)
+		if (_base->getAvailableSoldiers(true, true) > 0 && origId!=4294967295)
 		{
 			auto *bgame = new SavedBattleGame(_game->getMod(), _game->getLanguage());
 			_game->getSavedGame()->setBattleGame(bgame);
@@ -548,7 +557,6 @@ void SoldierAssignmentState::recalculateChances()
 
 /**
  * Helper for coloring the relevant stats table according to outcomes. If a stat affects a single outcome, it will get colored it in its color, if none - _inactiveStatColor, if multiple - _activeStatColor.
- * @param rowCount Amount of rows for stats (11 without mana and 12 with).
  * @param outcomeIndex the index of the outcome that should color its relevants stats.
  */
 
@@ -681,17 +689,25 @@ void SoldierAssignmentState::resetSoldierSelection()
 {
 	_selectedSoldiers.clear();
 	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
-	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 	recalculateChances();
 }
 
-size_t SoldierAssignmentState::origSoldierId(size_t lstSelectedRow)
+unsigned int SoldierAssignmentState::origSoldierId(unsigned int lstSelectedRow)
 {
-	if (lstSelectedRow!=4294967295){
+	if (lstSelectedRow!=4294967295)
+	{
 		Soldier * soldier = _filteredListOfSoldiers[lstSelectedRow];
 		auto soldier_iter = std::find(_origSoldierOrder.begin(), _origSoldierOrder.end(), soldier);
 		return soldier_iter-_origSoldierOrder.begin();
 	}
-	return 0;
+	return -1;
+}
+
+void SoldierAssignmentState::filterWounded(std::vector<Soldier *> * toFilter)
+{
+	toFilter->erase(
+	std::remove_if(toFilter->begin(), toFilter->end(),
+				   [](Soldier* s) { return s->isWounded(); }),
+	toFilter->end());
 }
 }

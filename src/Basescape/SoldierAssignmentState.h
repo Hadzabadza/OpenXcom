@@ -88,7 +88,7 @@ public:
 	/// Handler for moving a clicked mouse button over soldier entries.
 	void lstSoldiersMultiselect();
 	/// Helper for enering the inventory screen. Copypasted from SoldierState.
-	void enterInventory(size_t origId);
+	void enterInventory(size_t origId) const;
 	/// Helper for calculating a soldier's contribution to assignment success.
 	int countContribution(const Soldier* soldier, size_t outcome) const;
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
@@ -99,7 +99,8 @@ public:
 	void lstSortByClick(Action * action);
 	void sortAndReinitSoldierList(int sortIndex);
 	void resetSoldierSelection();
-	size_t origSoldierId(size_t lstSelectedRow);
+	unsigned int origSoldierId(unsigned int lstSelectedRow);
+	static void filterWounded(std::vector<Soldier *> * toFilter);
 };
 
 }
