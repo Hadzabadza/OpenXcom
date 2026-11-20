@@ -1229,6 +1229,9 @@
     <ClCompile Include="Basescape\SoldierVoiceState.cpp">
       <Filter>Basescape</Filter>
     </ClCompile>
+    <ClCompile Include="Mod\RuleAssignment.cpp" />
+    <ClCompile Include="Basescape\SoldierAssignmentListState.cpp" />
+    <ClCompile Include="Basescape\SoldierAssignmentState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -2714,6 +2717,9 @@
     <ClInclude Include="Basescape\SoldierVoiceState.h">
       <Filter>Basescape</Filter>
     </ClInclude>
+    <ClInclude Include="Mod\RuleAssignment.h" />
+    <ClInclude Include="Basescape\SoldierAssignmentListState.h" />
+    <ClInclude Include="Basescape\SoldierAssignmentState.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Geoscape">
@@ -2793,5 +2799,8 @@
     <Natvis Include="..\libs\rapidyaml\c4\c4core.natvis">
       <Filter>Engine\rapidyaml\c4</Filter>
     </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

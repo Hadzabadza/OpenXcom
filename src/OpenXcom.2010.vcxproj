@@ -387,6 +387,8 @@
     <ClCompile Include="Basescape\SackSoldierState.cpp" />
     <ClCompile Include="Basescape\SellState.cpp" />
     <ClCompile Include="Basescape\SoldierArmorState.cpp" />
+    <ClCompile Include="Basescape\SoldierAssignmentListState.cpp" />
+    <ClCompile Include="Basescape\SoldierAssignmentState.cpp" />
     <ClCompile Include="Basescape\SoldierBonusState.cpp" />
     <ClCompile Include="Basescape\SoldierDiaryLightState.cpp" />
     <ClCompile Include="Basescape\SoldierDiaryMissionState.cpp" />
@@ -624,6 +626,7 @@
     <ClCompile Include="Menu\VideoState.cpp" />
     <ClCompile Include="Mod\CustomPalettes.cpp" />
     <ClCompile Include="Mod\RuleArcScript.cpp" />
+    <ClCompile Include="Mod\RuleAssignment.cpp" />
     <ClCompile Include="Mod\RuleDamageType.cpp" />
     <ClCompile Include="Mod\RuleEnviroEffects.cpp" />
     <ClCompile Include="Mod\RuleEvent.cpp" />
@@ -866,6 +869,8 @@
     <ClInclude Include="Basescape\SackSoldierState.h" />
     <ClInclude Include="Basescape\SellState.h" />
     <ClInclude Include="Basescape\SoldierArmorState.h" />
+    <ClInclude Include="Basescape\SoldierAssignmentListState.h" />
+    <ClInclude Include="Basescape\SoldierAssignmentState.h" />
     <ClInclude Include="Basescape\SoldierBonusState.h" />
     <ClInclude Include="Basescape\SoldierDiaryLightState.h" />
     <ClInclude Include="Basescape\SoldierDiaryMissionState.h" />
@@ -1118,6 +1123,7 @@
     <ClInclude Include="Mod\CustomPalettes.h" />
     <ClInclude Include="Mod\ModScript.h" />
     <ClInclude Include="Mod\RuleArcScript.h" />
+    <ClInclude Include="Mod\RuleAssignment.h" />
     <ClInclude Include="Mod\RuleBaseFacilityFunctions.h" />
     <ClInclude Include="Mod\RuleDamageType.h" />
     <ClInclude Include="Mod\RuleEnviroEffects.h" />
@@ -1253,6 +1259,9 @@
   <ItemGroup>
     <Natvis Include="..\libs\rapidyaml\c4\c4core.natvis" />
     <Natvis Include="..\libs\rapidyaml\ryml.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
