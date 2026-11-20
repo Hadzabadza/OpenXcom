@@ -22,7 +22,13 @@
 
 namespace OpenXcom
 {
-
+/**
+ * Represents a custom soldier assignment.
+ * Assignments are designed to be a highly customizable type of side activities for the player to send their soldiers on.
+ * The soldiers will undergo a stat check to determine which of the outcomes they will manage to achieve.
+ * The stat checks themselves can either be very simple or super-complex with multiple stats and other variables all affecting the chances of each outcome separately.
+ * Whether they will be small side-quests suited to merely occupy the player's surplus crew or epic progression chains is all up to the implementation.
+ */
 RuleAssignment::RuleAssignment(const std::string &name) :
 _name(name), _minimumSoldiers(0), _maximumSoldiers(std::numeric_limits<int>::max())
 {
@@ -70,7 +76,7 @@ void RuleAssignment::load(const YAML::YamlNodeReader& node)
 				outcomesNode[i].readNode("resolutionType", _outcomeResolutionTypes[i]);
 				std::string symbols;
 				outcomesNode[i].tryRead("symbols", symbols);
-				// 160 symbols for 320 px, assuming symbols aren't smaller than 2 px.
+				// 160 symbols for 320 px, assuming symbols aren't thinner than 2 px.
 				if (!symbols.empty())
 				{
 					_outcomeCharacters[i].reserve(160);

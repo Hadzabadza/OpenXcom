@@ -1189,7 +1189,7 @@ int Soldier::getHealthRecovery(int healthRecoveryPerDay) const
  */
 int Soldier::getWoundRecoveryInt() const
 {
-	// Note: only for use in Yankes scripts! ...and in base defense HP calculations :/
+	// Note: only for use in Yankes scripts! ...and in base defense HP calculations :/ ...and in assignments T_T
 	return (int)(std::ceil(_recovery));
 }
 

@@ -31,6 +31,7 @@ class RuleAssignment
 private:
 	std::string _name, _description;
 	int _minimumSoldiers, _maximumSoldiers;
+	bool _allowWounded;
 	std::vector<std::string> _outcomeCharacters;
 	std::vector<std::string> _outcomeNames;
 	std::vector<std::string> _outcomeResolutionTypes;
@@ -55,27 +56,26 @@ public:
 	const int &getMaxSoldiers() const { return _maximumSoldiers; }
 	/// Gets the assignment's minimum necessary soldiers.
 	const int &getMinSoldiers() const { return _minimumSoldiers; }
-	/// Gets the assignment's outcome names.
+	/// Gets outcome names.
 	const std::vector<std::string> &getOutcomeNames() const { return _outcomeNames; }
-	/// Gets the assignment's outcome resolution types.
+	/// Gets outcome resolution types. TODO: is currently used as a pointer to an event through its name. Should instead be a new "resolution" class that allows for more complex resolutions.
 	const std::vector<std::string> &getResolutionTypes() const { return _outcomeResolutionTypes; }
-	/// Gets the assignment's outcome base weights.
+	/// Gets outcome base weights.
 	const std::vector<int> &getOutcomeBaseWeights() const { return _outcomeBaseWeights; }
-	/// Gets the assignment's outcome transfer times.
+	/// Gets outcome transfer times.
 	const std::vector<int> &getOutcomeTransferTimes() const { return _outcomeTransferTimes; }
-	/// Gets the assignment's outcome recovery times.
+	/// Gets outcome recovery times.
 	const std::vector<int> &getOutcomeRecoveryTimes() const { return _outcomeRecoveryTimes; }
-	/// Gets the assignment's outcome calculation types (additive, average, lowest).
+	/// Gets outcome contribution calculation types (additive, average, lowest).
 	const std::vector<std::string> &getOutcomeCalculationTypes() const { return _outcomeCalculationTypes; }
-	/// Gets the assignment's outcome stat bonuses type (all, no armor, base).
+	/// Gets outcome stat bonus types (all, no armor, base).
 	const std::vector<std::string> &getOutcomeStatBonuses() const { return _outcomeStatBonuses; }
-	/// Gets the assignment's outcome colors.
+	/// Gets outcome colors.
 	const std::vector<Uint8> &getOutcomeColors() const { return _outcomeColors; }
-	/// Gets the outcome's success bar filler character.
+	/// Gets outcome success bar filler strings (| by default).
 	const std::vector<std::string> & getOutcomeCharacters() const { return _outcomeCharacters; }
-	/// Gets the assignment's outcome used stats and their ratios.
+	/// Gets outcome-contributing stats and their ratios.
 	const std::vector<std::map<std::string, float>> &getOutcomeStatsAndRatios() const { return _outcomeStatsAndRatios; }
-
 };
 
 }

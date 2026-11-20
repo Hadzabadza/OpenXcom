@@ -36,6 +36,7 @@ namespace OpenXcom
 
 /**
  * Initializes all the elements in the Geoscape Event window.
+ * TODO: Generate actual assignments using an eventScript-like logic (or better yet, extend and use the existing logic).
  * @param geoEvent Pointer to the event.
  */
 SoldierAssignmentListState::SoldierAssignmentListState(Base *base) : _base(base)

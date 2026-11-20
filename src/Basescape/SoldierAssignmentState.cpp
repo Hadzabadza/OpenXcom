@@ -42,16 +42,18 @@
 
 #include <iomanip>
 #include <numeric>
+#include <utility>
 
 namespace OpenXcom
 {
 /**
  * Initializes all the elements in the Soldier Assignment screen.
+ * TODO: Add more ways of accessing the screen (global missions for all bases instead of just 1, and when a craft reaches an assignment mission marker on the globe itself).
  * @param base Pointer to the base that the assignment table has been called from.
  * @param assignment Pointer to the assignment ruleset.
  */
 SoldierAssignmentState::SoldierAssignmentState(Base *base, RuleAssignment *assignment) :
-	_base(base), _origSoldierOrder(*_base->getSoldiers()), _mainOffset(0), _ruleAssignment(*assignment),
+	_base(base), _eligibleSoldiersList(*_base->getSoldiers()), _mainOffset(0), _ruleAssignment(*assignment),
 	_minSoldiers(assignment->getMinSoldiers()), _maxSoldiers(assignment->getMaxSoldiers()),  _lmb(false), _toggleTo(false),
 	_activeStatColor(0), _inactiveStatColor(7), _outcomeCount(_ruleAssignment.getOutcomeNames().size())
 {
@@ -192,38 +194,29 @@ void SoldierAssignmentState::init()
 	recalculateChances();
 }
 
+/**
+* Inits and re-inits the soldier list.
+* @param filteredList The old filtered list if it already exists.
+*/
 void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *> * filteredList)
 {
 	_lstSoldiers->clearList();
-
-	// Check after other states if players modified the soldiers list.
-	std::vector<Soldier *> newList = *_base->getSoldiers();
-	// Happens when soldiers get transferred/sacked.
-	if (newList!=_origSoldierOrder)
+	// Check if players modified the soldiers list after inventory/stat states.
+	std::vector<Soldier *> newList = filterIneligible(*_base->getSoldiers());
+	if (newList!=_eligibleSoldiersList)
 	{
-		_origSoldierOrder=newList;
-		sortAndReinitSoldierList(_cbxSortBy->getSelected(),false);
-	} else
+		_eligibleSoldiersList=newList;
+		pruneSoldiers();
+	}
+	else
 	{
-		filterWounded(&newList);
-		// Happens when soldiers get wounded by transformations.
-		if (_noWounded.size()!= newList.size())
-		{
-			_filteredListOfSoldiers.clear();
-			resetSoldierSelection();
-			_noWounded=newList;
-			sortAndReinitSoldierList(_cbxSortBy->getSelected(),false);
-		}
-		else
-		{
-			_filteredListOfSoldiers = *filteredList;
-		}
+		_filteredListOfSoldiers = *filteredList;
 	}
 
 	if (_filteredListOfSoldiers.empty())
-		_filteredListOfSoldiers = _origSoldierOrder;
+		_filteredListOfSoldiers = _eligibleSoldiersList;
 	fillContributionTable();
-	filterWounded(&_filteredListOfSoldiers);
+
 	std::vector<size_t> lstSoldierColumns(_outcomeCount+1,18);
 	lstSoldierColumns[0] = 136;
 	_lstSoldiers->setColumnsVector(lstSoldierColumns);
@@ -250,6 +243,9 @@ void SoldierAssignmentState::initSoldierList(size_t scrl, std::vector<Soldier *>
 	_lstSoldiers->draw();
 }
 
+/**
+* Initializes the colored stats list.
+*/
 void SoldierAssignmentState::initStatList()
 {
 	_lstRelevantStatsTable->clearList();
@@ -275,7 +271,7 @@ void SoldierAssignmentState::initStatList()
 }
 
 /**
- * Returns to the previous screen.
+ * Closes the assignment state.
  */
 void SoldierAssignmentState::btnOkClick()
 {
@@ -283,7 +279,9 @@ void SoldierAssignmentState::btnOkClick()
 }
 
 /**
-* Shows the Statistics screen.
+* Confirms the mission and sends off the soldiers.
+* TODO: Make the resolution a timed event instead of an instant debug check.
+* TODO: Add xp rewards for outcomes.
 */
 void SoldierAssignmentState::btnSendOffClick()
 {
@@ -294,7 +292,7 @@ void SoldierAssignmentState::btnSendOffClick()
 		for (auto sol : _selectedSoldiers)
 		{
 			if (recoveryTime > 0)
-				sol->setWoundRecovery(recoveryTime);
+				sol->setWoundRecovery(recoveryTime+sol->getWoundRecoveryInt());
 
 			if (transferTime > 0)
 			{
@@ -324,6 +322,10 @@ void SoldierAssignmentState::btnSendOffClick()
 	}
 }
 
+/**
+ * Toggles a hovered soldier.
+ * @param row Which row is currently hovered.
+ */
 void SoldierAssignmentState::toggleSoldier(int row)
 {
 	if (row >= 0 && _affectedRows[row] != true)
@@ -354,10 +356,9 @@ void SoldierAssignmentState::toggleSoldier(int row)
 }
 
 /**
- * Invokes a singular soldier toggling on mouse press and prevents glitchy behaviour from duplicating with movement.
+ * Processes a mouse click and protects against duped input from lstSoldiersMultiselect function.
  * @param action Pointer to an action.
  */
-
 void SoldierAssignmentState::lstSoldiersMousePress(Action *action)
 {
 	if (_game->isLeftClick(action, true))
@@ -378,7 +379,6 @@ void SoldierAssignmentState::lstSoldiersMousePress(Action *action)
  * Shows the selected soldier's info if right click or stops toggling soldiers if left.
  * @param action Pointer to an action.
  */
-
 void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 {
 	unsigned int origId = origSoldierId(_lstSoldiers->getSelectedRow());
@@ -407,19 +407,28 @@ void SoldierAssignmentState::lstSoldiersMouseRelease(Action *action)
 	}
 }
 
+/**
+ * Auto-fills the list with soldiers depending on which mouse button is clicked.
+ * @param action Pointer to an action.
+ */
 void SoldierAssignmentState::txtMaxSoldiersMouseRelease(Action *action)
 {
-	size_t ceil=0;
+	unsigned int row;
+	if (_lstSoldiers->isMouseCursorOverMe(this))
+		row=_lstSoldiers->getSelectedRow();
+	else
+		row=0;
+	unsigned int ceil=row;
 	if (_game->isLeftClick(action, true))
 		if (_minSoldiers==0)
-			ceil = _maxSoldiers;
+			ceil += _maxSoldiers;
 		else
-			ceil = _minSoldiers;
+			ceil += _minSoldiers;
 	else if (_game->isRightClick(action, true))
-		ceil = _maxSoldiers;
+		ceil += _maxSoldiers;
 	if (_selectedSoldiers.empty())
 	{
-		for (int i=0; i<ceil; i++)
+		for (unsigned int i=row; i<ceil; i++)
 			if (_filteredListOfSoldiers.size() > i)
 				_selectedSoldiers.push_back(_filteredListOfSoldiers[i]);
 			else
@@ -433,7 +442,7 @@ void SoldierAssignmentState::txtMaxSoldiersMouseRelease(Action *action)
 }
 
 /**
- * Toggles showing description or the soldiers table.
+ * Toggles between showing assignment description and soldiers table.
  */
 void SoldierAssignmentState::btnToggleDescriptionClick()
 {
@@ -445,10 +454,8 @@ void SoldierAssignmentState::btnToggleDescriptionClick()
 }
 
 /**
- * Invokes soldier toggling on mouse movements for faster selection.
- * @param action Pointer to an action.
+ * Toggles all hovered soldiers on mouse moves for quick QoL selection.
  */
-
 void SoldierAssignmentState::lstSoldiersMultiselect()
 {
 	if (_lmb)
@@ -456,9 +463,8 @@ void SoldierAssignmentState::lstSoldiersMultiselect()
 }
 
 /**
-* Copypasted inventory screen from SoldiersState.
+* (Mostly) copy-pasted inventory screen from SoldiersState.
 */
-
 void SoldierAssignmentState::enterInventory(size_t origId) const
 {
 		// Copypasted from SoldiersState
@@ -496,6 +502,12 @@ void SoldierAssignmentState::enterInventory(size_t origId) const
 		}
 }
 
+/**
+ * Counts an individual soldier's contribution to mission outcomes.
+ * TODO: add more contribution criteria (commendations, races, equipment, craft used for delivery to the mission?).
+ * @param soldier Which soldier's contribution is being counted.
+ * @param outcome To which outcome does the solider contribute.
+ */
 int SoldierAssignmentState::countContribution(const Soldier *soldier, const Uint8 outcome) const
 {
 	const std::map<std::string, float>* ratios = &_ruleAssignment.getOutcomeStatsAndRatios()[outcome];
@@ -522,6 +534,9 @@ int SoldierAssignmentState::countContribution(const Soldier *soldier, const Uint
 	return floor(contribution);
 }
 
+/**
+ * Helper for clearing and filling _contributionMap.
+ */
 void SoldierAssignmentState::fillContributionTable()
 {
 	_contributionMap.clear();
@@ -534,6 +549,9 @@ void SoldierAssignmentState::fillContributionTable()
 	}
 }
 
+/**
+ * Helper for recalculating outcome chances after any selection changes.
+ */
 void SoldierAssignmentState::recalculateChances()
 {
 	int totalWeight=0;
@@ -578,10 +596,9 @@ void SoldierAssignmentState::recalculateChances()
 }
 
 /**
- * Helper for coloring the relevant stats table according to outcomes. If a stat affects a single outcome, it will get colored it in its color, if none - _inactiveStatColor, if multiple - _activeStatColor.
- * @param outcomeIndex the index of the outcome that should color its relevants stats.
+ * Helper for coloring the relevant stats table according to outcomes. If a stat affects a single outcome, it will get colored in its color, if none - _inactiveStatColor, if multiple - _activeStatColor.
+ * @param outcomeIndex the index of the outcome that should color its relevant stats.
  */
-
 void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 {
 	std::vector<Uint8> outcomeIndices;
@@ -641,6 +658,10 @@ void SoldierAssignmentState::colorRelevantStatsTable(int outcomeIndex)
 	}
 }
 
+/**
+ * Helper for resetting the success bar, aka, _lstOutcomeDistribution.
+ * @param widths widths of each segment of the bar.
+ */
 void SoldierAssignmentState::resetOutcomeDistributionsList(const std::vector<size_t> &widths)
 {
 	_lstOutcomeDistribution->clearList();
@@ -652,11 +673,18 @@ void SoldierAssignmentState::resetOutcomeDistributionsList(const std::vector<siz
 	}
 }
 
+/**
+ * Sorting using the combobox.
+ */
 void SoldierAssignmentState::cbxSortByChange()
 {
 	sortAndReinitSoldierList(_cbxSortBy->getSelected());
 }
 
+/**
+ * Sorting through clicking on a success bar segment.
+ * @param action Pointer to an action.
+ */
 void SoldierAssignmentState::lstSortByClick(Action * action)
 {
 	if (_game->isLeftClick(action, true))
@@ -669,13 +697,18 @@ void SoldierAssignmentState::lstSortByClick(Action * action)
 	}
 }
 
-void SoldierAssignmentState::sortAndReinitSoldierList(Uint8 sortIndex, bool reinit)
+/**
+ * The actual sort function.
+ * @param sortIndex the index of the sort criterion (0 - original, others - by outcome).
+ * @param reinit should be false when used from inside initSoldierList to prevent infinite looping.
+ */
+void SoldierAssignmentState::sortAndReinitSoldierList(Uint8 sortIndex)
 {
 	std::vector<Soldier *> checker = _filteredListOfSoldiers;
 	if (sortIndex==0)
 	{
 		_cbxSortBy->setSelected(0);
-		_filteredListOfSoldiers=_origSoldierOrder;
+		_filteredListOfSoldiers=_eligibleSoldiersList;
 		_txtCalculationType->setText(tr("STR_ASSIGNMENT_OUTCOME_COUNT_TYPE_UC").arg(tr(_calculationType)).arg(tr(_bonusesType)));
 		colorRelevantStatsTable(-1);
 	}
@@ -704,33 +737,72 @@ void SoldierAssignmentState::sortAndReinitSoldierList(Uint8 sortIndex, bool rein
 			return;
 		}
 	}
-	if (reinit)
-		initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
+	initSoldierList(_lstSoldiers->getScroll(), &_filteredListOfSoldiers);
 }
 
-void SoldierAssignmentState::resetSoldierSelection()
+/**
+ * Helper for clearing soldier selection.
+ */
+void SoldierAssignmentState::resetSoldierSelection(bool clear)
 {
-	_selectedSoldiers.clear();
+	if (clear)
+		_selectedSoldiers.clear();
 	_txtMaximumSoldiers->setText(tr("STR_ASSIGNMENT_MAX_SOLDIERS_UC").arg(_selectedSoldiers.size()).arg(_maxSoldiersStr));
 	recalculateChances();
 }
 
+/**
+ * Converts the row index in _lstSoldiers to actual soldier ID in base.
+ * @param lstSelectedRow The current row in _lstSoldiers.
+ */
 unsigned int SoldierAssignmentState::origSoldierId(unsigned int lstSelectedRow)
 {
 	if (lstSelectedRow!=4294967295)
 	{
 		Soldier * soldier = _filteredListOfSoldiers[lstSelectedRow];
-		auto soldier_iter = std::find(_origSoldierOrder.begin(), _origSoldierOrder.end(), soldier);
-		return soldier_iter-_origSoldierOrder.begin();
+		auto soldier_iter = std::find(_base->getSoldiers()->begin(), _base->getSoldiers()->end(), soldier);
+		return soldier_iter-_base->getSoldiers()->begin();
 	}
 	return -1;
 }
 
-void SoldierAssignmentState::filterWounded(std::vector<Soldier *> * toFilter)
+/**
+ * Removes ineligible soldiers from a vector.
+ * @param toFilter A vector of soldiers that will get filtered.
+ */
+std::vector<Soldier *> SoldierAssignmentState::filterIneligible(std::vector<Soldier *> toFilter)
 {
-	toFilter->erase(
-	std::remove_if(toFilter->begin(), toFilter->end(),
-				   [](Soldier* s) { return s->isWounded(); }),
-	toFilter->end());
+	std::vector<Soldier*> filteredList = std::move(toFilter);
+	filteredList.erase(std::remove_if(filteredList.begin(), filteredList.end(), &SoldierAssignmentState::isSoldierEligible),filteredList.end());
+	return filteredList;
 }
+
+/**
+ * Checks whether the soldier is eligible for the missions.
+ * TODO: add more eligibility checks using startingConditions (disallow armors, races, etc).
+ * @param s Which soldier is going through the check.
+ */
+bool SoldierAssignmentState::isSoldierEligible(Soldier * s)
+{
+	return s->isWounded();
+}
+
+/// Updates soldier vectors if the list was modified in-state (in soldier info screen).
+void SoldierAssignmentState::pruneSoldiers()
+{
+	std::unordered_set eligibles(_eligibleSoldiersList.begin(), _eligibleSoldiersList.end());
+
+	auto isStale = [&](Soldier* s) { return eligibles.count(s) == 0; };
+
+	_filteredListOfSoldiers.erase(
+		std::remove_if(_filteredListOfSoldiers.begin(), _filteredListOfSoldiers.end(), isStale),
+		_filteredListOfSoldiers.end());
+
+	_selectedSoldiers.erase(
+		std::remove_if(_selectedSoldiers.begin(), _selectedSoldiers.end(), isStale),
+		_selectedSoldiers.end());
+
+	resetSoldierSelection(false);
+}
+
 }

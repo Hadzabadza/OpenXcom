@@ -33,8 +33,7 @@ class TextList;
 class ComboBox;
 
 /**
- * Screen that shows all the soldiers
- * that have died throughout the game.
+ * Screen showing all the details of an assignment.
  */
 class SoldierAssignmentState : public State
 {
@@ -47,7 +46,7 @@ private:
 	ComboBox *_cbxSortBy;
 	TextList *_lstRelevantStatsTable, *_lstOutcomeDistribution, *_lstSoldiers;
 	Base *_base;
-	std::vector<Soldier *> _origSoldierOrder, _filteredListOfSoldiers, _selectedSoldiers, _noWounded;
+	std::vector<Soldier *> _eligibleSoldiersList, _filteredListOfSoldiers, _selectedSoldiers;
 	std::map<const Soldier*, std::vector<int>> _contributionMap;
 	std::map<int, bool> _affectedRows;
 	std::vector<SortFunctor *> _sortFunctors;
@@ -91,16 +90,30 @@ public:
 	void enterInventory(size_t origId) const;
 	/// Helper for calculating a soldier's contribution to assignment success.
 	int countContribution(const Soldier* soldier, Uint8 outcome) const;
+	/// Helper for resetting the success bar, aka, _lstOutcomeDistribution.
 	void resetOutcomeDistributionsList(const std::vector<size_t> &widths);
+	/// Helper for clearing and filling _contributionMap.
 	void fillContributionTable();
+	/// Helper for recalculating outcome chances after any selection changes.
 	void recalculateChances();
+	/// Helper for coloring the relevant stats table according to outcomes. If a stat affects a single outcome, it will get colored in its color, if none - _inactiveStatColor, if multiple - _activeStatColor.
 	void colorRelevantStatsTable(int outcomeIndex=-1);
+	/// Sorting using the combobox.
 	void cbxSortByChange();
+	/// Sorting through clicking on a success bar segment.
 	void lstSortByClick(Action * action);
-	void sortAndReinitSoldierList(Uint8 sortIndex, bool reinit=true);
-	void resetSoldierSelection();
+	/// The actual sort function.
+	void sortAndReinitSoldierList(Uint8 sortIndex);
+	/// Helper for clearing soldier selection.
+	void resetSoldierSelection(bool clear=true);
+	/// Converts the row index in _lstSoldiers to actual soldier ID in base.
 	unsigned int origSoldierId(unsigned int lstSelectedRow);
-	static void filterWounded(std::vector<Soldier *> * toFilter);
+	/// Removes ineligible soldiers from a vector.
+	static std::vector<Soldier*> filterIneligible(std::vector<Soldier *> toFilter);
+	/// Checks whether the soldier is eligible for the missions.
+	static bool isSoldierEligible(Soldier * s);
+	/// Updates soldier vectors if the list was modified in-state.
+	void pruneSoldiers();
 };
 
 }
